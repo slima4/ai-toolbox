@@ -38,6 +38,15 @@ Session browser and manager. Single-file script.
 - Subcommands: `list`, `show`, `resume`, `diff`, `export`
 - Reads from `~/.claude/projects/` directory structure
 
+### claude-code-commands
+
+Custom slash commands for in-session analytics. Markdown files installed to `~/.claude/commands/ui/`.
+
+- Commands: `session` (full report), `cost` (spending breakdown), `perf` (tool efficiency), `context` (growth curve)
+- Each command instructs Claude to read the current transcript JSONL and present formatted analysis
+- No external dependencies — commands are pure markdown prompts
+- Transcript path resolved via: `~/.claude/projects/$(pwd | sed 's|/|-|g; s|^-||')/*.jsonl`
+
 ### claude-code-hooks
 
 Claude Code hooks for automatic in-session context. Three hook scripts:

@@ -86,6 +86,17 @@ python3 session-manager.py diff a1b2c3d4 13a4b5c6
   Cost difference      +$43.49
 ```
 
+### [claude-code-commands](./claude-code-commands/)
+
+Custom slash commands for deep session analytics on demand. Install to `~/.claude/commands/ui/` and use:
+
+```
+/ui:session    Full session report — context, cost, tools, thinking
+/ui:cost       Cost deep dive — spending breakdown, cache savings, projections
+/ui:perf       Performance analysis — tool efficiency, errors, file heatmap
+/ui:context    Context window analysis — growth curve, compaction timeline, predictions
+```
+
 ### [claude-code-hooks](./claude-code-hooks/)
 
 [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) that provide automatic context about file activity, dependencies, and code churn — right inside Claude Code sessions.
