@@ -2,6 +2,35 @@
 
 A collection of utilities and scripts for working with AI coding assistants.
 
+## Install
+
+One command installs everything — statusline, hooks, slash commands, and CLI tools:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/slima4/ai-toolbox/main/install.sh | bash
+```
+
+Or clone and install locally:
+
+```bash
+git clone https://github.com/slima4/ai-toolbox.git
+./ai-toolbox/install.sh
+```
+
+After install:
+
+```bash
+claude                # statusline + hooks work automatically
+claude-monitor        # live dashboard in a second terminal
+claude-stats          # post-session analytics
+claude-sessions list  # browse all sessions
+# inside Claude Code:
+/ui:session           # deep session report
+/ui:cost              # cost breakdown
+```
+
+To uninstall: `claude-ui-uninstall`
+
 ## Tools
 
 ### [claude-code-statusline](./claude-code-statusline/)
