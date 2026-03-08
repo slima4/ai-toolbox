@@ -413,16 +413,23 @@ def build_sparkline(values, width=50):
     return "".join(chars)
 
 
-def render_matrix_header(frame, width=60):
-    """Render just the matrix rain header line."""
+def render_matrix_header(frame, width=60, active=True):
+    """Render just the matrix rain header line.
+
+    When active=True, animates the rain. When False, shows a static dim line.
+    """
     rain = "10110010011101001011100101100110100"
     speeds = [1, 3, 2, 1, 2, 3, 1, 2, 3, 1, 2, 3, 2, 1, 3]
-    m_colors = [M_DARK, M_DARK, M_MID, M_MID, M_BRIGHT]
+    if active:
+        m_colors = [M_DARK, M_DARK, M_MID, M_MID, M_BRIGHT]
+    else:
+        m_colors = [M_DARK, M_DARK, M_DARK]
     line = ""
     for c in range(width):
-        idx = c * 5 - frame * speeds[c % len(speeds)]
+        f = frame if active else 0
+        idx = c * 5 - f * speeds[c % len(speeds)]
         ch = rain[idx % len(rain)]
-        cidx = c * 3 - frame * speeds[c % len(speeds)]
+        cidx = c * 3 - f * speeds[c % len(speeds)]
         mc = m_colors[cidx % len(m_colors)]
         line += f"{mc}{ch}{RESET}"
     return line
@@ -1187,19 +1194,25 @@ def main():
                             cached_body = None
                             needs_full_redraw = True
 
+                # Matrix animates only when Claude is actively working
+                is_active = bool(r and r.get("waiting_for_response"))
+
                 if needs_full_redraw:
-                    matrix_line = render_matrix_header(frame, min(term_width, 80))
+                    matrix_line = render_matrix_header(frame, min(term_width, 80), active=is_active)
                     out.write(CLEAR + matrix_line + "\n" + cached_body)
                     out.flush()
                     needs_full_redraw = False
-                else:
-                    # Only update line 1 (matrix header) in place
-                    matrix_line = render_matrix_header(frame, min(term_width, 80))
+                elif is_active:
+                    # Animate matrix header at 100ms
+                    matrix_line = render_matrix_header(frame, min(term_width, 80), active=True)
                     out.write(f"\033[1;1H{ERASE_LINE}{matrix_line}")
                     out.flush()
 
-                frame += 1
-                time.sleep(0.1)
+                if is_active:
+                    frame += 1
+                    time.sleep(0.1)
+                else:
+                    time.sleep(0.5)
             except KeyboardInterrupt:
                 break
             except Exception as e:
