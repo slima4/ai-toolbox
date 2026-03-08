@@ -124,6 +124,7 @@ def parse_transcript(transcript_path):
         "tool_errors": 0,
         "subagent_count": 0,
         "turn_count": 0,
+        "thinking_count": 0,
         "context_history": [],
     }
 
@@ -231,13 +232,16 @@ def parse_transcript(transcript_path):
             result["compact_count"] += 1
             result["context_history"].append(0)
 
-        # Tool calls, errors, files, and subagents from assistant messages
+        # Tool calls, thinking, errors, files, and subagents
         if obj.get("type") == "assistant" and "message" in obj:
             content = obj["message"].get("content", [])
+            has_thinking = False
             if isinstance(content, list):
                 for block in content:
                     if not isinstance(block, dict):
                         continue
+                    if block.get("type") == "thinking":
+                        has_thinking = True
                     if block.get("type") == "tool_use":
                         result["tool_calls"] += 1
                         inp = block.get("input", {})
@@ -253,6 +257,8 @@ def parse_transcript(transcript_path):
                             task_id = block.get("id", "")
                             if task_id:
                                 active_subagents.add(task_id)
+            if has_thinking:
+                result["thinking_count"] += 1
 
         # Tool errors from user messages (tool_result blocks)
         if obj.get("type") == "user" and "message" in obj:
@@ -466,6 +472,10 @@ def main():
         error_part,
         cache_part,
     ])
+    if metrics["thinking_count"] > 0:
+        line2_parts.append(
+            f"{MAGENTA}{metrics['thinking_count']}{RESET}x think"
+        )
     if cost_per_turn:
         line2_parts.append(cost_per_turn)
     if subagent_part:
