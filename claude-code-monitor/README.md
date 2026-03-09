@@ -63,7 +63,7 @@ Run it in a separate terminal while Claude Code is working.
 | `d` | Run **session-manager show** — detailed session view |
 | `l` | **Event log** — scrollable log with filtering and live auto-scroll |
 | `e` | **Export** session as markdown file |
-| `o` | Run **session-manager list** — browse all recent sessions |
+| `o` | Run **session-manager list** — browse sessions for this project |
 | `?` | Toggle **help overlay** with all features and shortcuts |
 | `q` | Quit the monitor |
 
@@ -86,6 +86,7 @@ Press any key after viewing a report to return to the live dashboard.
 - **Last error message** — displayed inline with word wrapping
 - **Terminal resize** — adapts bar width, sparkline, and layout to terminal size
 - **Auto-follow** — detects and switches to new sessions when current one goes idle
+- **Project-scoped sessions** — `o` key shows only sessions for the current project, not all projects
 - **Interactive hotkeys** — launch stats, details, sessions, export without leaving the monitor
 - **Help overlay** — press `?` for full feature and shortcut reference
 - **Alternate screen buffer** — clean terminal, tool output stays in normal scrollback

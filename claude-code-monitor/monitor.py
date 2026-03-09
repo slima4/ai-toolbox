@@ -9,7 +9,7 @@ Usage:
 Hotkeys:
     s  session stats        d  session details
     l  event log            e  export session
-    o  list sessions        ?  help overlay
+    o  project sessions     ?  help overlay
     q  quit
 """
 
@@ -818,7 +818,7 @@ def render_help_overlay(term_width):
         ("d", "Session details — detailed session view from session-manager"),
         ("l", "Event log — scrollable, f to filter, a for live auto-scroll"),
         ("e", "Export session — save session as markdown"),
-        ("o", "List sessions — browse all recent sessions"),
+        ("o", "List sessions — browse sessions for this project"),
         ("?", "Toggle this help overlay"),
         ("q", "Quit the monitor"),
     ]
@@ -1264,7 +1264,8 @@ def main():
                     elif key in ("o", "O"):
                         script = find_tool_script("manager")
                         if os.path.exists(script):
-                            run_tool(script, ["list"])
+                            project_name = Path(path).parent.name
+                            run_tool(script, ["list", f"--project={project_name}"])
                             needs_full_redraw = True
                             cached_body = None
 
