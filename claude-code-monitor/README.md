@@ -37,7 +37,7 @@ A standalone terminal dashboard that monitors your active Claude Code session in
   14:32:15  error: File not found
 
   ────────────────────────────────────────────────────────────
-  [s] stats  [d] details  [l] log  [e] export  [o] sessions  [c] config  [?] help  [q] quit
+  stats  details  log  export  sessions  config  ?help  quit
 ```
 
 ## Usage
