@@ -178,8 +178,8 @@ if os.path.exists(settings_file):
             os.rename(settings_file, backup)
             print(f"  \033[93m!\033[0m Backed up corrupted settings to {backup}")
 
-# Resolve install_dir if it's a symlink
-real_dir = os.path.realpath(install_dir)
+# Keep stable path — do not resolve symlinks (Cellar paths break on upgrade)
+real_dir = install_dir
 
 # ── Statusline ──
 mode = os.environ.get("STATUSLINE_MODE", "full")
