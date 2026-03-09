@@ -322,7 +322,8 @@ def parse_transcript(path):
                 r["tokens"]["output"] += out_t
                 ctx = inp_t + cache_r + cache_c + out_t
                 last_context = ctx
-                r["context_history"].append(ctx)
+                if out_t > 0:
+                    r["context_history"].append(out_t)
                 r["per_response"].append({
                     "turn": current_turn, "ctx": ctx, "output": out_t,
                     "timestamp": ts,
@@ -424,35 +425,36 @@ def build_bar(ratio, width=30):
 
 
 def build_sparkline(values, width=50):
-    """Build colored sparkline from context history."""
+    """Build colored sparkline showing per-turn token spend.
+
+    Scaled relative to the peak value so the shape reveals
+    which turns were expensive vs cheap.
+    """
     if not values:
         return ""
-    cleaned = [v if v is not None else 0 for v in values]
-    none_set = {i for i, v in enumerate(values) if v is None}
-
-    if len(cleaned) > width:
-        step = len(cleaned) / width
-        sampled = []
-        none_sampled = set()
-        for i in range(width):
-            start = int(i * step)
-            end = int((i + 1) * step)
-            sampled.append(max(cleaned[start:end]))
-            for j in range(start, end):
-                if j in none_set:
-                    none_sampled.add(i)
-        cleaned = sampled
-        none_set = none_sampled
+    # Tail: show only the most recent turns at full resolution
+    if len(values) > width:
+        values = values[-width:]
 
     blocks = "▁▂▃▄▅▆▇█"
+    peak = max((v for v in values if v is not None and v > 0), default=1)
+    scale = peak if peak > 0 else 1
     chars = []
-    for i, v in enumerate(cleaned):
-        if i in none_set:
+    for v in values:
+        if v is None:
             chars.append(f"{MAGENTA}↓{RESET}")
             continue
-        r = v / CONTEXT_LIMIT
+        r = v / scale
         idx = max(0, min(int(r * (len(blocks) - 1)), len(blocks) - 1))
-        chars.append(f"{color_ratio(r)}{blocks[idx]}{RESET}")
+        if r < 0.25:
+            color = GREEN
+        elif r < 0.50:
+            color = CYAN
+        elif r < 0.75:
+            color = YELLOW
+        else:
+            color = ORANGE
+        chars.append(f"{color}{blocks[idx]}{RESET}")
     return "".join(chars)
 
 
@@ -496,9 +498,7 @@ def render_dashboard(r, idle_secs, just_updated, term_width):
     bar_width = max(20, min(w - 30, 40))
     bar = build_bar(ratio, bar_width)
     spark_width = max(20, min(w - 10, 60))
-    scaled_history = [v * OVERHEAD_MULTIPLIER if v is not None else None
-                      for v in r["context_history"]]
-    sparkline = build_sparkline(scaled_history, spark_width)
+    sparkline = build_sparkline(r["context_history"], spark_width)
 
     # Compaction prediction
     turns_left = "—"

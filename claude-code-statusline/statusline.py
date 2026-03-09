@@ -246,17 +246,10 @@ def parse_transcript(transcript_path):
             )
             result["output_tokens_total"] += usage.get("output_tokens", 0)
 
-            # Context snapshot for sparkline
-            ctx_keys = [
-                "input_tokens",
-                "cache_creation_input_tokens",
-                "cache_read_input_tokens",
-                "output_tokens",
-            ]
-            if all(k in usage for k in ctx_keys):
-                result["context_history"].append(
-                    sum(usage[k] for k in ctx_keys)
-                )
+            # Per-turn token spend for sparkline
+            out_tok = usage.get("output_tokens", 0)
+            if out_tok > 0:
+                result["context_history"].append(out_tok)
 
         # Compact count — also record a 0 in context history (visual cliff)
         if obj.get("type") == "summary" or (
@@ -377,12 +370,14 @@ def format_duration(start_timestamp):
         return "?m"
 
 
-def build_sparkline(values, max_context, width=20):
-    """Build a colored sparkline with absolute scale and compaction markers.
+def build_sparkline(values, width=20):
+    """Build a colored sparkline showing per-turn token spend.
+
+    Scaled relative to the peak value in the data so the shape
+    reveals which turns were expensive vs cheap.
 
     Args:
-        values: list of token counts (None = compaction event).
-        max_context: model's max context window size for absolute scaling.
+        values: list of output-token counts (None = compaction event).
         width: max number of characters to render.
 
     Returns:
@@ -401,22 +396,13 @@ def build_sparkline(values, max_context, width=20):
             cleaned.append(v)
     values = cleaned
 
-    # Downsample with peak-preserving buckets
+    # Tail: show only the most recent turns at full resolution
     if len(values) > width:
-        step = len(values) / width
-        sampled = []
-        for i in range(width):
-            start = int(i * step)
-            end = int((i + 1) * step)
-            bucket = values[start:end]
-            if None in bucket:
-                sampled.append(None)
-            else:
-                sampled.append(max(bucket))
-        values = sampled
+        values = values[-width:]
 
     blocks = "▁▂▃▄▅▆▇█"
-    scale = max_context if max_context > 0 else 1
+    peak = max((v for v in values if v is not None), default=1)
+    scale = peak if peak > 0 else 1
     chars = []
     for v in values:
         if v is None:
@@ -425,14 +411,14 @@ def build_sparkline(values, max_context, width=20):
         r = v / scale
         idx = int(r * (len(blocks) - 1))
         idx = max(0, min(idx, len(blocks) - 1))
-        if r < 0.50:
+        if r < 0.25:
             color = GREEN
+        elif r < 0.50:
+            color = CYAN
         elif r < 0.75:
             color = YELLOW
-        elif r < 0.90:
-            color = ORANGE
         else:
-            color = RED
+            color = ORANGE
         chars.append(f"{color}{blocks[idx]}{RESET}")
     return "".join(chars)
 
@@ -539,10 +525,8 @@ def main():
 
     sep = f" {GRAY}|{RESET} "
 
-    # Context sparkline (absolute scale, per-char coloring, compaction markers)
-    sparkline_part = build_sparkline(
-        metrics["context_history"], max_context=CONTEXT_LIMIT
-    )
+    # Per-turn token spend sparkline (relative to peak)
+    sparkline_part = build_sparkline(metrics["context_history"])
 
     # Compaction prediction (turns remaining)
     compact_prediction = ""
