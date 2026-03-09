@@ -338,6 +338,11 @@ echo -e "  claude-sessions list"
 echo -e "  claude-ui-mode compact  ${DIM}# switch to 1-line statusline${RESET}"
 echo ""
 echo -e "  ${DIM}Installed to: $INSTALL_DIR${RESET}"
-echo -e "  ${DIM}To update:    cd $INSTALL_DIR && git pull${RESET}"
-echo -e "  ${DIM}To uninstall: claude-ui-uninstall${RESET}"
+if [[ "$INSTALL_DIR" == */opt/claudeui/* || "$INSTALL_DIR" == */Cellar/claudeui/* ]]; then
+    echo -e "  ${DIM}To update:    brew upgrade claudeui${RESET}"
+    echo -e "  ${DIM}To uninstall: claude-ui-uninstall && brew uninstall claudeui${RESET}"
+else
+    echo -e "  ${DIM}To update:    cd $INSTALL_DIR && git pull${RESET}"
+    echo -e "  ${DIM}To uninstall: claude-ui-uninstall${RESET}"
+fi
 echo ""
