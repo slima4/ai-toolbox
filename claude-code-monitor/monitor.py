@@ -301,7 +301,7 @@ def parse_transcript(path):
                                 else:
                                     query = inp.get("pattern", inp.get("query", inp.get("prompt", "")))
                                     if query:
-                                        q_clean = str(query).replace("\n", " ").strip()[:80]
+                                        q_clean = str(query).replace("\n", " ").strip()
                                         trace_entry = f"{name.lower()} {q_clean}"
                                         r["event_log"].append((ts, f"{name.lower()}: {q_clean}"))
                                     else:
