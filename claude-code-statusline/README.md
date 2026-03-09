@@ -8,7 +8,15 @@ A lightweight Python script that adds a real-time context window usage indicator
  0110010 read statusline.py → edit statusline.py → bash python3 → edit README.md │ statusline.py×3 README.md×1
 ```
 
-Three-line layout with Matrix binary rain animation on the left:
+Two modes available — **full** (3-line, default) and **compact** (1-line):
+
+```
+ Opus 4.6 │ ████████░░░░░░░░░░░░ 73% 145.4k/200.0k │ $215.63 │ 13h 01m │ 218 turns │ 5xcompact
+```
+
+Switch anytime: `claude-ui-mode compact` / `claude-ui-mode full` (restart Claude Code after).
+
+Full mode — three-line layout with Matrix binary rain animation on the left:
 
 - **Matrix rain** — animated 3×7 binary rain with true RGB Matrix colors (`#003B00` dark trail, `#03A062` classic green, `#00FF41` bright phosphor). Each character keeps its color as it falls down. Advances one frame per tool call.
 - **Line 1** — session core: model, context bar, sparkline, cost, duration, compactions, compaction prediction, session ID

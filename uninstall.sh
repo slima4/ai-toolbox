@@ -22,7 +22,7 @@ echo -e "${YELLOW}${BOLD}  Claude UI Uninstaller${RESET}"
 echo ""
 
 # Remove CLI wrappers
-for cmd in claude-monitor claude-stats claude-sessions claude-ui-uninstall; do
+for cmd in claude-monitor claude-stats claude-sessions claude-ui-mode claude-ui-uninstall; do
     if [ -f "$BIN_DIR/$cmd" ]; then
         rm "$BIN_DIR/$cmd"
         echo -e "  ${GREEN}✓${RESET} Removed $BIN_DIR/$cmd"

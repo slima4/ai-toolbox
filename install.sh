@@ -133,6 +133,23 @@ fi
 ln -sfn "$INSTALL_DIR/claude-code-commands/ui" "$COMMANDS_DIR/ui"
 ok "/ui:session, /ui:cost, /ui:perf, /ui:context"
 
+# ── Choose statusline mode ──────────────────────────────────────────
+
+echo ""
+echo -e "  ${BOLD}Statusline mode:${RESET}"
+echo ""
+echo -e "  ${CYAN}1)${RESET} ${BOLD}full${RESET}     3-line statusline with all metrics, sparkline, tool trace"
+echo -e "  ${CYAN}2)${RESET} ${BOLD}compact${RESET}  1-line statusline with essentials (model, context, cost)"
+echo ""
+echo -ne "  Choose [${BOLD}1${RESET}/${BOLD}2${RESET}] (default: 1): "
+read -r mode_choice < /dev/tty || mode_choice=""
+case "${mode_choice}" in
+    2|compact) STATUSLINE_MODE="compact" ;;
+    *) STATUSLINE_MODE="full" ;;
+esac
+ok "Statusline mode: $STATUSLINE_MODE"
+export STATUSLINE_MODE
+
 # ── Configure settings.json ─────────────────────────────────────────
 
 echo ""
@@ -165,16 +182,19 @@ if os.path.exists(settings_file):
 real_dir = os.path.realpath(install_dir)
 
 # ── Statusline ──
+mode = os.environ.get("STATUSLINE_MODE", "full")
 statusline_cmd = f"python3 {real_dir}/claude-code-statusline/statusline.py"
+if mode == "compact":
+    statusline_cmd += " --compact"
 current_sl = settings.get("statusLine", {})
 if current_sl.get("command") != statusline_cmd:
     settings["statusLine"] = {
         "type": "command",
         "command": statusline_cmd,
     }
-    print(f"  \033[92m✓\033[0m Statusline configured")
+    print(f"  \033[92m✓\033[0m Statusline configured ({mode})")
 else:
-    print(f"  \033[92m✓\033[0m Statusline already configured")
+    print(f"  \033[92m✓\033[0m Statusline already configured ({mode})")
 
 # ── Hooks ──
 hooks = settings.get("hooks", {})
@@ -262,6 +282,13 @@ EOF
 chmod +x "$BIN_DIR/claude-sessions"
 ok "claude-sessions"
 
+cat > "$BIN_DIR/claude-ui-mode" << EOF
+#!/usr/bin/env bash
+exec bash "$INSTALL_DIR/claude-ui-mode.sh" "\$@"
+EOF
+chmod +x "$BIN_DIR/claude-ui-mode"
+ok "claude-ui-mode"
+
 cat > "$BIN_DIR/claude-ui-uninstall" << EOF
 #!/usr/bin/env bash
 exec bash "$INSTALL_DIR/uninstall.sh" "\$@"
@@ -286,7 +313,7 @@ echo -e "${GREEN}${BOLD}  ╚═════════════════
 echo ""
 echo -e "  ${BOLD}What's installed:${RESET}"
 echo ""
-echo -e "  ${CYAN}Statusline${RESET}      Real-time status bar in Claude Code"
+echo -e "  ${CYAN}Statusline${RESET}      Real-time status bar in Claude Code (${STATUSLINE_MODE} mode)"
 echo -e "  ${CYAN}Hooks${RESET}           File hotspots, dependency warnings, churn alerts"
 echo -e "  ${CYAN}Commands${RESET}        /ui:session  /ui:cost  /ui:perf  /ui:context"
 echo -e "  ${CYAN}Monitor${RESET}         claude-monitor (live dashboard in separate terminal)"
@@ -308,6 +335,7 @@ echo ""
 echo -e "  ${DIM}# Post-session analytics${RESET}"
 echo -e "  claude-stats"
 echo -e "  claude-sessions list"
+echo -e "  claude-ui-mode compact  ${DIM}# switch to 1-line statusline${RESET}"
 echo ""
 echo -e "  ${DIM}Installed to: $INSTALL_DIR${RESET}"
 echo -e "  ${DIM}To update:    cd $INSTALL_DIR && git pull${RESET}"

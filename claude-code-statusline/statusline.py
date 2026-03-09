@@ -457,6 +457,8 @@ def build_progress_bar(ratio, length=20):
 
 
 def main():
+    compact_mode = "--compact" in sys.argv
+
     try:
         data = json.load(sys.stdin)
     except (json.JSONDecodeError, EOFError):
@@ -625,6 +627,23 @@ def main():
                 f"{YELLOW}{n}{RESET}{dim}×{c}{RESET}" for n, c in top
             ))
         line3 = f" {sep.join(parts3)}"
+
+    # ── Compact mode: single line with essentials ──
+    if compact_mode:
+        compact_parts = [
+            f"{BOLD}{MAGENTA}{model}{RESET}",
+            f"{bar} {CYAN}{tokens_str}{RESET}{dim}/{RESET}{GRAY}{limit_str}{RESET}",
+            f"{YELLOW}{cost_str}{RESET}",
+            f"{WHITE}{duration_str}{RESET}",
+            f"{CYAN}{metrics['turn_count']}{RESET} {dim}turns{RESET}",
+            f"{CYAN}{metrics['compact_count']}{RESET}{dim}x{RESET}compact",
+        ]
+        if metrics["tool_errors"] > 0:
+            compact_parts.append(error_part)
+        print(f" {sep.join(compact_parts)}")
+        return
+
+    # ── Full mode: 3 lines ──
 
     # Widget animation (advances with each tool call)
     widget_fn = _load_widget(WIDGET)

@@ -24,6 +24,8 @@ claude                # statusline + hooks work automatically
 claude-monitor        # live dashboard in a second terminal
 claude-stats          # post-session analytics
 claude-sessions list  # browse all sessions
+claude-ui-mode compact # switch to 1-line statusline
+claude-ui-mode full    # switch to 3-line statusline
 # inside Claude Code:
 /ui:session           # deep session report
 /ui:cost              # cost breakdown

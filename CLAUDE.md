@@ -15,7 +15,8 @@ Real-time status bar for Claude Code. Single-file script.
 - Entry point: `claude-code-statusline/statusline.py`
 - Reads session JSON from stdin (provided by Claude Code's `statusLine` feature)
 - Parses the transcript JSONL file for token usage, compaction events, tool calls, errors, turns, cache ratio, and thinking blocks
-- Three-line layout: line 1 (session core + sparkline), line 2 (project telemetry), line 3 (live tool trace + file edits)
+- Two modes: `full` (3-line with sparkline, telemetry, tool trace) and `compact` (1-line essentials)
+- Mode switch: `claude-ui-mode compact` / `claude-ui-mode full`, or `--compact` flag
 - Pluggable widget system on the left (3×7 grid): `matrix`, `hex`, `bars`, `progress`, `none`
 - Widget selection via `STATUSLINE_WIDGET` env var (default: `matrix`)
 - Widget functions: `widget_fn(frame, ratio) -> list[str]` returning 3 rows
