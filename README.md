@@ -2,6 +2,8 @@
 
 A collection of utilities and scripts for working with Claude Code.
 
+**Website:** [slima4.github.io/claudeui](https://slima4.github.io/claudeui/)
+
 ## Install
 
 One command installs everything — statusline, hooks, slash commands, and CLI tools:
