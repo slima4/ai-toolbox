@@ -58,7 +58,7 @@ Live session dashboard for a separate terminal. Single-file script.
 - Args: none (auto-detect), `<session-id>`, or `--list`
 - Hotkeys: `s` stats, `d` details, `l` log viewer, `e` export, `o` sessions, `?` help
 - Log viewer: `f` cycles filter (all/errors/bash/edits/search/agents/compactions), `a` toggles live auto-scroll
-- Agent tracking: logs agent/subagent spawns and completions in event log
+- Agent tracking: logs spawns/completions in event log; CURRENT section shows active/total agents per turn
 
 ### claude-code-hooks
 

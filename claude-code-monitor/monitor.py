@@ -162,6 +162,8 @@ def parse_transcript(path):
         "turn_files_read": Counter(),
         "turn_files_edited": Counter(),
         "turn_thinking": 0,
+        "turn_agents_spawned": 0,
+        "turn_agents_pending": set(),
         # Turn timer
         "last_user_ts": None,   # timestamp of last user message
         "last_assist_ts": None, # timestamp of last assistant response
@@ -221,6 +223,8 @@ def parse_transcript(path):
                 r["turn_files_read"] = Counter()
                 r["turn_files_edited"] = Counter()
                 r["turn_thinking"] = 0
+                r["turn_agents_spawned"] = 0
+                r["turn_agents_pending"] = set()
 
         # Tool errors
         if etype == "user" and "message" in obj:
@@ -258,6 +262,7 @@ def parse_transcript(path):
                             and not block.get("is_error")):
                         tool_id = block.get("tool_use_id", "")
                         if tool_id in agent_labels:
+                            r["turn_agents_pending"].discard(tool_id)
                             label = agent_labels[tool_id]
                             # Extract first line of agent result as summary
                             result_text = ""
@@ -309,8 +314,10 @@ def parse_transcript(path):
                                 agent_label = agent_desc or agent_type or "subagent"
                                 r["event_log"].append((ts, f"agent: {agent_label}"))
                                 r["recent_tools"].append(f"agent {agent_label}")
+                                r["turn_agents_spawned"] += 1
                                 if tid:
                                     agent_labels[tid] = agent_label
+                                    r["turn_agents_pending"].add(tid)
                                 continue
                             fp = inp.get("file_path", inp.get("path", ""))
                             # Build tool trace entry + event log
@@ -711,7 +718,15 @@ def render_dashboard(r, idle_secs, just_updated, term_width):
         lines.append(f"  {' '.join(file_parts)}")
 
     turn_err_color = RED if r["turn_tool_errors"] > 3 else ORANGE if r["turn_tool_errors"] > 0 else GREEN
-    lines.append(f"  {turn_err_color}{r['turn_tool_errors']}{RESET} errors  {DIM}│{RESET}  {MAGENTA}{r['turn_thinking']}{RESET} thinking")
+    turn_bottom = f"  {turn_err_color}{r['turn_tool_errors']}{RESET} errors  {DIM}│{RESET}  {MAGENTA}{r['turn_thinking']}{RESET} thinking"
+    if r["turn_agents_spawned"] > 0:
+        active = len(r["turn_agents_pending"])
+        total = r["turn_agents_spawned"]
+        if active > 0:
+            turn_bottom += f"  {DIM}│{RESET}  {YELLOW}{active}{RESET}{DIM}/{RESET}{CYAN}{total}{RESET} agents"
+        else:
+            turn_bottom += f"  {DIM}│{RESET}  {CYAN}{total}{RESET} agents"
+    lines.append(turn_bottom)
 
     # Last error detail
     if r["last_error_msg"]:

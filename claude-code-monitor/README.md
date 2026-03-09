@@ -91,7 +91,7 @@ Press any key after viewing a report to return to the live dashboard.
 - **Alternate screen buffer** — clean terminal, tool output stays in normal scrollback
 - **Per-turn token sparkline** — shows output tokens per turn (scaled to peak), recent turns at full resolution, compaction markers (`↓`)
 - **Compaction prediction** — estimated turns until next auto-compaction
-- **Agent tracking** — logs agent/subagent spawns and completions in the event log
+- **Agent tracking** — logs agent/subagent spawns and completions in the event log; CURRENT section shows active/total agents per turn
 
 ## Settings
 
