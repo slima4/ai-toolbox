@@ -798,7 +798,7 @@ def render_dashboard(r, idle_secs, just_updated, term_width):
 
     lines.append("")
     lines.append(f"  {sep_color}{'─' * w}{RESET}")
-    lines.append(f"  {DIM}[s]{RESET} stats  {DIM}[d]{RESET} details  {DIM}[l]{RESET} log  {DIM}[e]{RESET} export  {DIM}[o]{RESET} sessions  {DIM}[c]{RESET} config  {DIM}[?]{RESET} help  {DIM}[q]{RESET} quit")
+    lines.append(f"  {BOLD}{CYAN}s{RESET}{DIM}tats{RESET}  {BOLD}{CYAN}d{RESET}{DIM}etails{RESET}  {BOLD}{CYAN}l{RESET}{DIM}og{RESET}  {BOLD}{CYAN}e{RESET}{DIM}xport{RESET}  {DIM}sessi{RESET}{BOLD}{CYAN}o{RESET}{DIM}ns{RESET}  {BOLD}{CYAN}c{RESET}{DIM}onfig{RESET}  {BOLD}{CYAN}?{RESET}{DIM}help{RESET}  {BOLD}{CYAN}q{RESET}{DIM}uit{RESET}")
 
     return lines
 
