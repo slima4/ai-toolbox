@@ -56,7 +56,7 @@ Live session dashboard for a separate terminal. Single-file script.
 - Self-contained — all parsing inlined, no imports from other tools
 - Watches transcript file for changes, refreshes on file change
 - Args: none (auto-detect), `<session-id>`, or `--list`
-- Hotkeys: `s` stats, `d` details, `l` log viewer, `e` export, `o` sessions, `?` help
+- Hotkeys: `s` stats, `d` details, `l` log viewer, `e` export, `o` sessions, `c` config, `?` help
 - Log viewer: `f` cycles filter (all/errors/bash/edits/search/agents/compactions), `a` toggles live auto-scroll
 - Agent tracking: logs spawns/completions in event log; CURRENT section shows active/total agents per turn
 

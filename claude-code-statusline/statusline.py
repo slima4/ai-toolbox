@@ -27,11 +27,6 @@ from datetime import datetime
 # Full context window size (200k for Claude models)
 CONTEXT_LIMIT = 200_000
 
-# Overhead multiplier for system prompts, tool definitions, CLAUDE.md, etc.
-# These tokens are part of the context but not reported in usage data.
-# Empirically ~1.2x based on comparing with Claude Code's built-in indicator.
-OVERHEAD_MULTIPLIER = 1.2
-
 # Pricing per million tokens (as of 2025)
 # https://docs.anthropic.com/en/docs/about-claude/models
 MODEL_PRICING = {
@@ -481,9 +476,9 @@ def build_progress_bar(ratio, length=20):
 
     if ratio < 0.50:
         color = GREEN
-    elif ratio < 0.75:
+    elif ratio < 0.70:
         color = YELLOW
-    elif ratio < 0.90:
+    elif ratio < 0.80:
         color = ORANGE
     else:
         color = RED
@@ -511,10 +506,10 @@ def main():
     metrics = parse_transcript(transcript_path)
 
     # Context usage bar
-    estimated_total = metrics["context_tokens"] * OVERHEAD_MULTIPLIER
-    ratio = estimated_total / CONTEXT_LIMIT if CONTEXT_LIMIT > 0 else 0
+    ctx_used = metrics["context_tokens"]
+    ratio = ctx_used / CONTEXT_LIMIT if CONTEXT_LIMIT > 0 else 0
     bar = build_progress_bar(ratio)
-    tokens_str = format_tokens(int(estimated_total))
+    tokens_str = format_tokens(int(ctx_used))
     limit_str = format_tokens(CONTEXT_LIMIT)
 
     # Session cost
@@ -583,8 +578,8 @@ def main():
     turns_since = metrics["turns_since_compact"]
     if turns_since >= 2 and ratio > 0 and ratio < 1.0:
         # Average context growth per turn since last compaction
-        growth_per_turn = estimated_total / max(turns_since, 1)
-        remaining_tokens = CONTEXT_LIMIT - estimated_total
+        growth_per_turn = ctx_used / max(turns_since, 1)
+        remaining_tokens = CONTEXT_LIMIT - ctx_used
         if growth_per_turn > 0:
             turns_left = int(remaining_tokens / growth_per_turn)
             if turns_left <= 5:

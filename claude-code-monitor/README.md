@@ -37,7 +37,7 @@ A standalone terminal dashboard that monitors your active Claude Code session in
   14:32:15  error: File not found
 
   ────────────────────────────────────────────────────────────
-  [s] stats  [d] details  [l] log  [e] export  [o] sessions  [?] help  [q] quit
+  [s] stats  [d] details  [l] log  [e] export  [o] sessions  [c] config  [?] help  [q] quit
 ```
 
 ## Usage
@@ -64,6 +64,7 @@ Run it in a separate terminal while Claude Code is working.
 | `l` | **Event log** — scrollable log with filtering and live auto-scroll |
 | `e` | **Export** session as markdown file |
 | `o` | Run **session-manager list** — browse sessions for this project |
+| `c` | **Settings panel** — compaction threshold, auto-compact toggle, sparkline config |
 | `?` | Toggle **help overlay** with all features and shortcuts |
 | `q` | Quit the monitor |
 

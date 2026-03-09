@@ -71,7 +71,6 @@ MODEL_PRICING = {
     "claude-haiku-4-5": {"input": 0.80, "cache_read": 0.08, "output": 4.0},
 }
 CONTEXT_LIMIT = 200_000
-OVERHEAD_MULTIPLIER = 1.2
 _original_termios = None
 
 
@@ -452,9 +451,9 @@ def color_ratio(ratio):
     """Get color for a context ratio."""
     if ratio < 0.50:
         return GREEN
-    elif ratio < 0.75:
+    elif ratio < 0.70:
         return YELLOW
-    elif ratio < 0.90:
+    elif ratio < 0.80:
         return ORANGE
     return RED
 
@@ -547,8 +546,8 @@ def render_dashboard(r, idle_secs, just_updated, term_width):
     """
     pricing = get_pricing(r["model"])
     cost = calc_cost(r["tokens"], pricing)
-    estimated = r["last_context"] * OVERHEAD_MULTIPLIER
-    ratio = estimated / CONTEXT_LIMIT if estimated > 0 else 0
+    ctx_used = r["last_context"]
+    ratio = ctx_used / CONTEXT_LIMIT if ctx_used > 0 else 0
     duration = format_duration_live(r["start_time"])
     w = min(term_width - 2, 80)  # content width, cap at 80
     bar_width = max(20, min(w - 30, 40))
@@ -559,8 +558,8 @@ def render_dashboard(r, idle_secs, just_updated, term_width):
     # Compaction prediction
     turns_left = "—"
     if r["turns_since_compact"] >= 2 and ratio > 0 and ratio < 1.0:
-        growth = estimated / max(r["turns_since_compact"], 1)
-        remaining = CONTEXT_LIMIT - estimated
+        growth = ctx_used / max(r["turns_since_compact"], 1)
+        remaining = CONTEXT_LIMIT - ctx_used
         if growth > 0:
             tl = int(remaining / growth)
             c = color_ratio(1.0 - tl / 100 if tl < 100 else 0)
@@ -641,7 +640,7 @@ def render_dashboard(r, idle_secs, just_updated, term_width):
 
     # Context section
     lines.append(f"  {BOLD}CONTEXT{RESET}")
-    lines.append(f"  {bar}  {color_ratio(ratio)}{ratio * 100:.1f}%{RESET}  {CYAN}{format_tokens(int(estimated))}{RESET}{DIM}/{RESET}{GRAY}{format_tokens(CONTEXT_LIMIT)}{RESET}")
+    lines.append(f"  {bar}  {color_ratio(ratio)}{ratio * 100:.1f}%{RESET}  {CYAN}{format_tokens(int(ctx_used))}{RESET}{DIM}/{RESET}{GRAY}{format_tokens(CONTEXT_LIMIT)}{RESET}")
     lines.append(f"  {sparkline}")
     compact_line = f"  {DIM}Compactions:{RESET} {CYAN}{r['compact_count']}{RESET}  {DIM}│{RESET}  {DIM}Turns left:{RESET} {turns_left}  {DIM}│{RESET}  {DIM}Since compact:{RESET} {CYAN}{r['turns_since_compact']}{RESET}"
 
@@ -799,9 +798,214 @@ def render_dashboard(r, idle_secs, just_updated, term_width):
 
     lines.append("")
     lines.append(f"  {sep_color}{'─' * w}{RESET}")
-    lines.append(f"  {DIM}[s]{RESET} stats  {DIM}[d]{RESET} details  {DIM}[l]{RESET} log  {DIM}[e]{RESET} export  {DIM}[o]{RESET} sessions  {DIM}[?]{RESET} help  {DIM}[q]{RESET} quit")
+    lines.append(f"  {DIM}[s]{RESET} stats  {DIM}[d]{RESET} details  {DIM}[l]{RESET} log  {DIM}[e]{RESET} export  {DIM}[o]{RESET} sessions  {DIM}[c]{RESET} config  {DIM}[?]{RESET} help  {DIM}[q]{RESET} quit")
 
     return lines
+
+
+def _read_claude_settings():
+    """Read ~/.claude/settings.json."""
+    path = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _write_claude_settings(settings):
+    """Write ~/.claude/settings.json."""
+    path = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
+    with open(path, "w") as f:
+        json.dump(settings, f, indent=2)
+        f.write("\n")
+
+
+def show_settings_panel(term_width):
+    """Interactive settings panel for compaction and display config."""
+    out = sys.stdout
+    fd = sys.stdin.fileno()
+    w = min(term_width - 4, 64)
+
+    while True:
+        # Read current values
+        settings = _read_claude_settings()
+        auto_compact = settings.get("autoCompact", True)
+        compact_pct = os.environ.get("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", "")
+        sparkline_mode = get_setting("sparkline", "mode", default="tail")
+        merge_size = get_setting("sparkline", "merge_size", default=2)
+
+        lines = []
+        lines.append("")
+        lines.append(f"  {BOLD}{'─' * w}{RESET}")
+        lines.append(f"  {BOLD}  SETTINGS{RESET}")
+        lines.append(f"  {'─' * w}")
+        lines.append("")
+        lines.append(f"  {YELLOW}⚠ Changes apply to the next Claude Code session{RESET}")
+        lines.append("")
+        lines.append(f"  {BOLD}  Compaction{RESET}")
+        lines.append(f"  {'─' * w}")
+        lines.append("")
+        ac_status = f"{GREEN}ON{RESET}" if auto_compact else f"{RED}OFF{RESET}"
+        lines.append(f"    {BOLD}{CYAN}1{RESET}   Auto-compact          {ac_status}")
+        lines.append(f"        {DIM}Toggle automatic context compaction{RESET}")
+        lines.append("")
+        pct_display = f"{CYAN}{compact_pct}%{RESET}" if compact_pct else f"{DIM}not set (Claude default){RESET}"
+        lines.append(f"    {BOLD}{CYAN}2{RESET}   Compact threshold      {pct_display}")
+        lines.append(f"        {DIM}CLAUDE_AUTOCOMPACT_PCT_OVERRIDE (1-100){RESET}")
+        lines.append(f"        {DIM}Saved to ~/.claude/claudeui.env — source it in your shell profile{RESET}")
+        lines.append("")
+        lines.append(f"        {YELLOW}ℹ{RESET}  {DIM}By default Claude compacts at ~83.5% usage (~167k of 200k).{RESET}")
+        lines.append(f"        {DIM}   Lower values = compact sooner (more headroom, lose context earlier).{RESET}")
+        lines.append(f"        {DIM}   Higher values = compact later (keep more context, risk running tight).{RESET}")
+        lines.append("")
+        lines.append(f"  {BOLD}  Display{RESET}")
+        lines.append(f"  {'─' * w}")
+        lines.append("")
+        lines.append(f"    {BOLD}{CYAN}3{RESET}   Sparkline mode         {CYAN}{sparkline_mode}{RESET}")
+        lines.append(f"        {DIM}\"tail\" (last N turns) or \"merge\" (combine turns){RESET}")
+        lines.append("")
+        if sparkline_mode == "merge":
+            lines.append(f"    {BOLD}{CYAN}4{RESET}   Merge size             {CYAN}{merge_size}{RESET}")
+            lines.append(f"        {DIM}Turns per bar in merge mode{RESET}")
+            lines.append("")
+        lines.append(f"  {'─' * w}")
+        lines.append(f"  {DIM}Press {BOLD}1-4{RESET}{DIM} to change, {BOLD}ESC{RESET}{DIM} or {BOLD}q{RESET}{DIM} to close{RESET}")
+
+        out.write(CLEAR + "\n".join(lines))
+        out.flush()
+
+        # Wait for input
+        while True:
+            if select.select([sys.stdin], [], [], 0.1)[0]:
+                byte = os.read(fd, 1)
+                # Drain escape sequences
+                while select.select([sys.stdin], [], [], 0.01)[0]:
+                    os.read(fd, 1)
+                ch = byte.decode("utf-8", errors="ignore")
+
+                if ch in ("\x1b", "q", "Q"):
+                    return
+
+                elif ch == "1":
+                    # Toggle autoCompact
+                    settings["autoCompact"] = not auto_compact
+                    _write_claude_settings(settings)
+                    break  # re-render
+
+                elif ch == "2":
+                    # Edit compact threshold
+                    val = _input_number(out, fd, w,
+                                        "Compact threshold (1-100)",
+                                        compact_pct if compact_pct else "not set", 1, 100)
+                    if val is not None:
+                        # Write to shell profile
+                        _save_env_override(
+                            "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", str(val))
+                    break  # re-render
+
+                elif ch == "3":
+                    # Toggle sparkline mode
+                    new_mode = "merge" if sparkline_mode == "tail" else "tail"
+                    _save_claudeui_setting("sparkline", "mode", new_mode)
+                    break  # re-render
+
+                elif ch == "4" and sparkline_mode == "merge":
+                    # Edit merge size
+                    val = _input_number(out, fd, w,
+                                        "Merge size (1-10)",
+                                        merge_size, 1, 10)
+                    if val is not None:
+                        _save_claudeui_setting(
+                            "sparkline", "merge_size", val)
+                    break  # re-render
+
+
+def _input_number(out, fd, w, prompt, current, min_val, max_val):
+    """Show inline number input, return int or None on cancel."""
+    buf = ""
+    while True:
+        lines = []
+        lines.append("")
+        lines.append(f"  {BOLD}{'─' * w}{RESET}")
+        lines.append(f"  {BOLD}  {prompt}{RESET}")
+        lines.append(f"  {'─' * w}")
+        lines.append("")
+        lines.append(f"    Current: {CYAN}{current}{RESET}")
+        lines.append(f"    New:     {BOLD}{buf}▌{RESET}")
+        lines.append("")
+        lines.append(f"  {DIM}Type a number, ENTER to confirm, ESC to cancel{RESET}")
+        out.write(CLEAR + "\n".join(lines))
+        out.flush()
+
+        if select.select([sys.stdin], [], [], 0.1)[0]:
+            byte = os.read(fd, 1)
+            ch = byte.decode("utf-8", errors="ignore")
+            if ch == "\x1b":
+                # Drain escape sequence
+                while select.select([sys.stdin], [], [], 0.01)[0]:
+                    os.read(fd, 1)
+                return None
+            elif ch in ("\r", "\n"):
+                if buf:
+                    try:
+                        val = int(buf)
+                        if min_val <= val <= max_val:
+                            return val
+                    except ValueError:
+                        pass
+                return None
+            elif ch == "\x7f" and buf:  # backspace
+                buf = buf[:-1]
+            elif ch.isdigit() and len(buf) < 5:
+                buf += ch
+
+
+def _save_claudeui_setting(*keys_and_value):
+    """Save a setting to ~/.claude/claudeui.json. Last arg is value."""
+    path = os.path.join(os.path.expanduser("~"), ".claude", "claudeui.json")
+    try:
+        with open(path) as f:
+            cfg = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        cfg = {}
+    # Navigate/create nested keys
+    keys = keys_and_value[:-1]
+    value = keys_and_value[-1]
+    d = cfg
+    for k in keys[:-1]:
+        if k not in d or not isinstance(d[k], dict):
+            d[k] = {}
+        d = d[k]
+    d[keys[-1]] = value
+    with open(path, "w") as f:
+        json.dump(cfg, f, indent=2)
+        f.write("\n")
+    # Force settings reload
+    global _SETTINGS_CACHE, _SETTINGS_MTIME
+    _SETTINGS_CACHE = None
+    _SETTINGS_MTIME = 0
+
+
+def _save_env_override(var_name, value):
+    """Save env var to ~/.claude/claudeui.env for user to source."""
+    path = os.path.join(os.path.expanduser("~"), ".claude", "claudeui.env")
+    lines = []
+    found = False
+    if os.path.exists(path):
+        with open(path) as f:
+            for line in f:
+                if line.startswith(f"export {var_name}="):
+                    lines.append(f"export {var_name}={value}\n")
+                    found = True
+                else:
+                    lines.append(line)
+    if not found:
+        lines.append(f"export {var_name}={value}\n")
+    with open(path, "w") as f:
+        f.writelines(lines)
+    # Also set in current process for display
+    os.environ[var_name] = value
 
 
 def render_help_overlay(term_width):
@@ -819,6 +1023,7 @@ def render_help_overlay(term_width):
         ("l", "Event log — scrollable, f to filter, a for live auto-scroll"),
         ("e", "Export session — save session as markdown"),
         ("o", "List sessions — browse sessions for this project"),
+        ("c", "Settings — compaction, sparkline, display config"),
         ("?", "Toggle this help overlay"),
         ("q", "Quit the monitor"),
     ]
@@ -1094,7 +1299,7 @@ def find_session_by_id(session_id):
 
 # ── Input handling ──────────────────────────────────────────────────
 
-VALID_KEYS = frozenset("qQsSdDlLeEoO?")
+VALID_KEYS = frozenset("qQsSdDlLeEoOcC?")
 
 
 def get_key():
@@ -1268,6 +1473,11 @@ def main():
                             run_tool(script, ["list", f"--project={project_name}"])
                             needs_full_redraw = True
                             cached_body = None
+                    elif key in ("c", "C"):
+                        show_settings_panel(term_width)
+                        needs_full_redraw = True
+                        cached_body = None
+                        continue
 
                 # Re-parse transcript only when file changes
                 try:

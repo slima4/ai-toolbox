@@ -156,13 +156,13 @@ Shared config file at `~/.claude/claudeui.json` (hot-reloads):
 | Usage | Color  | Meaning                        |
 | ----- | ------ | ------------------------------ |
 | < 50% | Green  | Plenty of room                 |
-| < 75% | Yellow | Getting busy, plan accordingly |
-| < 90% | Orange | Consider compacting soon       |
-| ≥ 90% | Red    | Auto-compaction imminent       |
+| < 70% | Yellow | Getting busy, plan accordingly |
+| < 80% | Orange | Consider compacting soon       |
+| ≥ 80% | Red    | Compaction approaching (~83.5% default threshold) |
 
 ## Limitations
 
-- Token count is an **estimate** based on the last API response's usage data — it may not perfectly reflect the internal context state
+- Token count is based on the last API response's usage data — it does not include system prompts, tool definitions, or CLAUDE.md overhead
 - After auto-compaction, the numbers may not reset immediately until the next API response
 - Sub-agent token usage may not be fully captured
 - Cost is estimated from transcript data — actual billing may differ slightly
