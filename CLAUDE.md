@@ -57,7 +57,8 @@ Live session dashboard for a separate terminal. Single-file script.
 - Watches transcript file for changes, refreshes on file change
 - Args: none (auto-detect), `<session-id>`, or `--list`
 - Hotkeys: `s` stats, `d` details, `l` log viewer, `e` export, `o` sessions, `?` help
-- Log viewer: `f` cycles filter (all/errors/bash/edits/search/compactions), `a` toggles live auto-scroll
+- Log viewer: `f` cycles filter (all/errors/bash/edits/search/agents/compactions), `a` toggles live auto-scroll
+- Agent tracking: logs agent/subagent spawns and completions in event log
 
 ### claude-code-hooks
 
@@ -67,6 +68,13 @@ Claude Code hooks for automatic in-session context. Three hook scripts:
 - `claude-code-hooks/post-edit-deps.py` — PostToolUse (Edit|Write): shows reverse dependencies
 - `claude-code-hooks/pre-edit-churn.py` — PreToolUse (Edit|Write): warns about high-churn files
 - Configured via `hooks` in `~/.claude/settings.json`
+
+### Shared Settings
+
+- Config file: `~/.claude/claudeui.json` — shared between statusline and monitor
+- Hot-reloads: both tools re-read on file change, no restart needed
+- Settings: `sparkline.mode` (`"tail"` or `"merge"`), `sparkline.merge_size` (turns per bar, default: 2)
+- Config loader: `load_settings()` / `get_setting(*keys, default=...)` in each tool (self-contained, no shared imports)
 
 ## Conventions
 

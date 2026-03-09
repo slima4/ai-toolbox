@@ -78,7 +78,7 @@ Press any key after viewing a report to return to the live dashboard.
 - **Token breakdown bar** — visual bar showing input/cache/output proportions with percentages
 - **Current vs Session** — split activity view: current turn (this question/answer) and full session totals
 - **Mini event log** — last 8 timestamped events: tool calls, errors, compactions
-- **Full log viewer** — `l` opens scrollable log with `f` to filter (all/errors/bash/edits/search/compactions) and `a` for live auto-scroll
+- **Full log viewer** — `l` opens scrollable log with `f` to filter (all/errors/bash/edits/search/agents/compactions) and `a` for live auto-scroll
 - **Green pulse** — separator flashes bright green when new data arrives
 - **Compaction alert** — `⚡ JUST COMPACTED` highlight after compaction events
 - **Cost burn rate** — `$/min` alongside per-turn average cost
@@ -89,8 +89,27 @@ Press any key after viewing a report to return to the live dashboard.
 - **Interactive hotkeys** — launch stats, details, sessions, export without leaving the monitor
 - **Help overlay** — press `?` for full feature and shortcut reference
 - **Alternate screen buffer** — clean terminal, tool output stays in normal scrollback
-- **Context bar + sparkline** — colored by usage threshold, compaction markers (`↓`)
+- **Per-turn token sparkline** — shows output tokens per turn (scaled to peak), recent turns at full resolution, compaction markers (`↓`)
 - **Compaction prediction** — estimated turns until next auto-compaction
+- **Agent tracking** — logs agent/subagent spawns and completions in the event log
+
+## Settings
+
+Shared config file at `~/.claude/claudeui.json` (hot-reloads while running):
+
+```json
+{
+  "sparkline": {
+    "mode": "tail",
+    "merge_size": 2
+  }
+}
+```
+
+| Setting | Values | Description |
+|---------|--------|-------------|
+| `sparkline.mode` | `"tail"` (default), `"merge"` | `tail` shows last N turns at full resolution; `merge` combines turns into buckets |
+| `sparkline.merge_size` | number (default: `2`) | How many turns to merge per bar in merge mode |
 
 ## Requirements
 

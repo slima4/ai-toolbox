@@ -26,7 +26,7 @@ Full mode — three-line layout with Matrix binary rain animation on the left:
 ## Features
 
 - **Context usage** — progress bar with color coding (green → yellow → orange → red)
-- **Context sparkline** — visual history of context usage scaled to the model's 200k limit; each bar is colored by its own threshold (green/yellow/orange/red), compactions marked with `↓`
+- **Per-turn token sparkline** — shows output tokens per turn (scaled to peak); recent turns at full resolution, compactions marked with `↓`
 - **Session cost** — estimated USD cost based on model pricing (input, cache read, output tokens)
 - **Cost per turn** — average cost per conversation turn
 - **Session duration** — how long since the first message
@@ -132,6 +132,24 @@ The left-side animation area is pluggable. Set the `STATUSLINE_WIDGET` env var t
   }
 }
 ```
+
+## Settings
+
+Shared config file at `~/.claude/claudeui.json` (hot-reloads):
+
+```json
+{
+  "sparkline": {
+    "mode": "tail",
+    "merge_size": 2
+  }
+}
+```
+
+| Setting | Values | Description |
+|---------|--------|-------------|
+| `sparkline.mode` | `"tail"` (default), `"merge"` | `tail` shows last N turns at full resolution; `merge` combines turns into buckets |
+| `sparkline.merge_size` | number (default: `2`) | How many turns to merge per bar in merge mode |
 
 ## Context bar color thresholds
 

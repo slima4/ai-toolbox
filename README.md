@@ -34,6 +34,24 @@ claude-ui-mode full    # switch to 3-line statusline
 
 To uninstall: `claude-ui-uninstall`
 
+### Settings
+
+Customize behavior via `~/.claude/claudeui.json` (hot-reloads, no restart needed):
+
+```json
+{
+  "sparkline": {
+    "mode": "tail",
+    "merge_size": 3
+  }
+}
+```
+
+| Setting | Values | Default | Description |
+|---------|--------|---------|-------------|
+| `sparkline.mode` | `"tail"`, `"merge"` | `"tail"` | `tail` shows last N turns; `merge` combines turns into buckets |
+| `sparkline.merge_size` | number | `2` | Turns per bar in merge mode |
+
 ## Tools
 
 ### [claude-code-statusline](./claude-code-statusline/)
