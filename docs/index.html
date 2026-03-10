@@ -496,7 +496,7 @@
         <div class="feature-card">
           <span class="feature-icon">&gt;_ monitor</span>
           <h3>Live Monitor</h3>
-          <p>Dashboard in a separate terminal with live stats, scrollable log viewer with filters, session browser, and export. Auto-detects active sessions.</p>
+          <p>Dashboard in a separate terminal with live stats, scrollable log viewer with filters, session browser, settings panel, and export. Auto-detects and follows active sessions.</p>
         </div>
         <div class="feature-card">
           <span class="feature-icon">$0.00 &rarr; $∞</span>
@@ -603,7 +603,7 @@
 <div class="line">  <span class="t-dim">14:33:12</span>  <span class="t-dim">write</span> <span class="t-green">index.html</span></div>
 <div class="line"></div>
 <div class="line">  <span class="t-dim">────────────────────────────────────────────────────────────────────────────────</span></div>
-<div class="line">  <span class="t-cyan">[s]</span> stats  <span class="t-cyan">[d]</span> details  <span class="t-cyan">[l]</span> log  <span class="t-cyan">[e]</span> export  <span class="t-cyan">[o]</span> sessions  <span class="t-cyan">[?]</span> help  <span class="t-cyan">[q]</span> quit</div>
+<div class="line">  <span class="t-bold t-cyan">s</span><span class="t-dim">tats</span>  <span class="t-bold t-cyan">d</span><span class="t-dim">etails</span>  <span class="t-bold t-cyan">l</span><span class="t-dim">og</span>  <span class="t-bold t-cyan">e</span><span class="t-dim">xport</span>  <span class="t-dim">sessi</span><span class="t-bold t-cyan">o</span><span class="t-dim">ns</span>  <span class="t-bold t-cyan">c</span><span class="t-dim">onfig</span>  <span class="t-bold t-cyan">?</span><span class="t-dim">help</span>  <span class="t-bold t-cyan">q</span><span class="t-dim">uit</span></div>
         </div>
       </div>
 
@@ -611,13 +611,15 @@
         <li>Auto-detects active session</li>
         <li>Live refresh on transcript changes</li>
         <li>Matrix rain header (active/idle aware)</li>
+        <li>Turn timer — shows how long Claude is working</li>
         <li>Context sparkline with compaction markers</li>
         <li>Cost breakdown with cache savings</li>
         <li>Per-turn tool trace and file edit counts</li>
         <li>Session-wide stats and file heatmap</li>
-        <li>Scrollable log viewer with word wrapping</li>
-        <li>Filter log: all, errors, bash, edits, search, compactions</li>
-        <li>Live auto-scroll follows new entries</li>
+        <li>Settings panel — compaction, sparkline config</li>
+        <li>Scrollable log viewer with filtering</li>
+        <li>Auto-follow detects new sessions</li>
+        <li>Agent tracking — spawns and completions</li>
         <li>Vim-style navigation (Ctrl+F/B, g/G)</li>
         <li>Export session data to markdown</li>
       </ul>
@@ -704,6 +706,22 @@ claude-ui-monitor</pre>
 claude-stats
 claude-sessions list</pre>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Uninstall -->
+  <section class="tool-section">
+    <div class="container">
+      <h2>Uninstall</h2>
+      <p class="subtitle">Clean removal of all settings, hooks, and commands</p>
+      <div class="tool-terminal">
+<div class="line"><span class="t-dim"># Homebrew</span></div>
+<div class="line"><span class="t-bright">claude-ui-uninstall</span></div>
+<div class="line"><span class="t-bright">brew uninstall claudeui</span></div>
+<div class="line"></div>
+<div class="line"><span class="t-dim"># Already ran brew uninstall first?</span></div>
+<div class="line"><span class="t-bright">curl -sSL https://raw.githubusercontent.com/slima4/claudeui/main/uninstall.sh | bash</span></div>
       </div>
     </div>
   </section>
