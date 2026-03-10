@@ -1,5 +1,12 @@
 # ClaudeUI
 
+[![Release](https://img.shields.io/github/v/release/slima4/claudeui)](https://github.com/slima4/claudeui/releases)
+[![Stars](https://img.shields.io/github/stars/slima4/claudeui)](https://github.com/slima4/claudeui/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/slima4/claudeui)](https://github.com/slima4/claudeui/commits/main)
+[![License](https://img.shields.io/github/license/slima4/claudeui)](https://github.com/slima4/claudeui/blob/main/LICENSE)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue?logo=python&logoColor=white)]()
+[![Shell](https://img.shields.io/badge/shell-bash%20%7C%20zsh-black?logo=gnubash&logoColor=white)]()
+
 A collection of utilities and scripts for working with Claude Code.
 
 **Website:** [slima4.github.io/claudeui](https://slima4.github.io/claudeui/)
