@@ -144,6 +144,139 @@ def find_latest_transcript():
     return latest
 
 
+# Cache for discovered skill names (refreshed every 30s)
+_skill_cache = {}
+_skill_cache_ts = {}
+
+
+def _read_skill_name(skill_file, fallback, prefix=""):
+    """Read skill name from SKILL.md frontmatter, or use fallback.
+
+    prefix is prepended to the name (used for plugin namespacing,
+    e.g. prefix="superpowers:" → /superpowers:skill-name).
+    """
+    try:
+        with open(skill_file) as sf:
+            first = sf.readline().strip()
+            if first == "---":
+                for fline in sf:
+                    fline = fline.strip()
+                    if fline == "---":
+                        break
+                    if fline.startswith("name:"):
+                        val = fline.split(":", 1)[1].strip().strip("\"'")
+                        if val:
+                            return "/" + prefix + val
+                        break
+    except (OSError, UnicodeDecodeError):
+        pass
+    return "/" + prefix + fallback
+
+
+def _scan_commands_dir(base_dir, names, prefix=""):
+    """Scan a commands directory: dir/file.md → /dir:file, file.md → /file."""
+    if not os.path.isdir(base_dir):
+        return
+    try:
+        seen_dirs = set()
+        for root, _dirs, files in os.walk(base_dir, followlinks=True):
+            real = os.path.realpath(root)
+            if real in seen_dirs:
+                _dirs.clear()  # stop descending into this symlink cycle
+                continue
+            seen_dirs.add(real)
+            for fname in files:
+                if not fname.endswith(".md"):
+                    continue
+                rel = os.path.relpath(os.path.join(root, fname), base_dir)
+                name = rel.rsplit(".", 1)[0]  # strip .md
+                name = "/" + prefix + name.replace(os.sep, ":")
+                names.add(name)
+    except OSError:
+        pass
+
+
+def _scan_skills_dir(base_dir, names, prefix=""):
+    """Scan a skills directory: each subdir with SKILL.md is a skill."""
+    if not os.path.isdir(base_dir):
+        return
+    try:
+        for entry in os.listdir(base_dir):
+            skill_file = os.path.join(base_dir, entry, "SKILL.md")
+            if os.path.isfile(skill_file):
+                name = _read_skill_name(skill_file, entry, prefix)
+                names.add(name)
+    except OSError:
+        pass
+
+
+def _discover_skill_names(cwd=None):
+    """Discover installed skill/command names from filesystem.
+
+    Scans all locations where Claude Code looks for skills:
+      1. Personal: ~/.claude/commands/, ~/.claude/skills/
+      2. Project: {cwd}/.claude/commands/, {cwd}/.claude/skills/
+      3. Nested: .claude/skills/ in parent directories (monorepo support)
+      4. Plugins: installed plugin skills from ~/.claude/plugins/
+
+    Naming rules:
+      commands/dir/file.md  → /dir:file
+      commands/file.md      → /file
+      skills/name/SKILL.md  → /name (or 'name:' from frontmatter)
+      plugin skills          → /plugin:skill-name (namespace from frontmatter)
+
+    Results are cached for 30 seconds.
+    """
+    cache_key = cwd or "__global__"
+    now = time.time()
+    if cache_key in _skill_cache and now - _skill_cache_ts.get(cache_key, 0) < 30:
+        return _skill_cache[cache_key]
+
+    names = set()
+    home = os.path.expanduser("~")
+
+    # 1. Personal skills and commands
+    _scan_commands_dir(os.path.join(home, ".claude", "commands"), names)
+    _scan_skills_dir(os.path.join(home, ".claude", "skills"), names)
+
+    # 2. Project-level skills and commands
+    if cwd:
+        _scan_commands_dir(os.path.join(cwd, ".claude", "commands"), names)
+        _scan_skills_dir(os.path.join(cwd, ".claude", "skills"), names)
+
+        # 3. Nested .claude/skills/ in parent directories (monorepo support)
+        parent = os.path.dirname(cwd)
+        seen = {cwd, home}  # avoid rescanning
+        while parent and parent not in seen and parent != os.path.dirname(parent):
+            seen.add(parent)
+            _scan_skills_dir(os.path.join(parent, ".claude", "skills"), names)
+            _scan_commands_dir(os.path.join(parent, ".claude", "commands"), names)
+            parent = os.path.dirname(parent)
+
+    # 4. Plugin skills (namespaced as plugin-name:skill-name)
+    plugins_file = os.path.join(home, ".claude", "plugins", "installed_plugins.json")
+    if os.path.isfile(plugins_file):
+        try:
+            with open(plugins_file) as pf:
+                plugins = json.load(pf).get("plugins", {})
+            for plugin_id, installs in plugins.items():
+                if not isinstance(installs, list) or not installs:
+                    continue
+                install_path = installs[0].get("installPath", "")
+                if install_path:
+                    # plugin_id = "superpowers@marketplace" → prefix = "superpowers:"
+                    plugin_name = plugin_id.split("@")[0] if "@" in plugin_id else plugin_id
+                    _scan_skills_dir(
+                        os.path.join(install_path, "skills"), names,
+                        prefix=plugin_name + ":")
+        except (OSError, json.JSONDecodeError, KeyError):
+            pass
+
+    _skill_cache[cache_key] = names
+    _skill_cache_ts[cache_key] = now
+    return names
+
+
 def parse_transcript(path):
     """Parse a transcript JSONL file into a comprehensive report dict."""
     r = {
@@ -183,6 +316,8 @@ def parse_transcript(path):
     agent_labels = {}  # tool_use_id -> description
     current_turn = 0
     last_context = 0
+    session_cwd = None
+    known_skills = None  # lazy-loaded on first command-name hit
 
     for line in lines:
         line = line.strip()
@@ -195,6 +330,8 @@ def parse_transcript(path):
 
         ts = obj.get("timestamp")
         etype = obj.get("type", "")
+        if session_cwd is None and obj.get("cwd"):
+            session_cwd = obj["cwd"]
         if ts:
             if r["start_time"] is None:
                 r["start_time"] = ts
@@ -229,10 +366,15 @@ def parse_transcript(path):
                 r["turn_agents_pending"] = set()
 
             # Detect skill / slash command invocations
+            # Only track real skills (discovered from filesystem), skip built-in commands
             raw_content = obj.get("message", {}).get("content", "")
             if isinstance(raw_content, str) and "<command-name>" in raw_content:
+                if known_skills is None:
+                    known_skills = _discover_skill_names(session_cwd)
                 for m in re.finditer(r"<command-name>(/[^<]+)</command-name>", raw_content):
                     skill_name = m.group(1)
+                    if skill_name not in known_skills:
+                        continue
                     r["skill_count"] += 1
                     r["event_log"].append((ts, f"skill: {skill_name}"))
 
@@ -351,7 +493,7 @@ def parse_transcript(path):
                                     cmd_clean = cmd.replace("\n", " ").strip()
                                     r["event_log"].append((ts, f"$ {cmd_clean}"))
                                 else:
-                                    query = inp.get("pattern", inp.get("query", inp.get("prompt", "")))
+                                    query = inp.get("pattern", inp.get("query", inp.get("prompt", inp.get("skill", ""))))
                                     if query:
                                         q_clean = str(query).replace("\n", " ").strip()
                                         trace_entry = f"{name.lower()} {q_clean}"
