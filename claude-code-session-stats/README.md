@@ -29,6 +29,7 @@ python3 session-stats.py abc12345 --json
 - **Context usage sparkline** — visual chart of context window size over time
 - **Activity** — user messages, turns, compaction count with timestamps, sub-agents spawned, tool errors
 - **Tool usage** — ranked bar chart of which tools were called and how often
+- **Skills & commands** — which skills and slash commands were used, ranked by frequency
 - **Most active files** — files ranked by read/edit/write activity with per-operation counts
 - **Avg turns between compactions** — helps gauge session efficiency
 

@@ -26,6 +26,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
@@ -135,6 +136,7 @@ def parse_session(transcript_path):
         "files_edited": Counter(),
         "files_created": Counter(),
         "subagent_count": 0,
+        "skill_usage": Counter(),
         "context_over_time": [],
     }
 
@@ -218,6 +220,11 @@ def parse_session(transcript_path):
                         tid = block.get("id", "")
                         if tid:
                             subagents.add(tid)
+
+                    if tool_name == "Skill":
+                        skill_name = inp.get("skill", "")
+                        if skill_name:
+                            report["skill_usage"]["/" + skill_name] += 1
 
                     file_path = inp.get("file_path", inp.get("path", ""))
                     if not file_path:
@@ -405,6 +412,16 @@ def print_report(report):
             bar = "█" * bar_len
             print(f"  {tool:15} {count:4}  {MAGENTA}{bar}{RESET}")
 
+    # Skill usage
+    if report["skill_usage"]:
+        print()
+        print(f"  {BOLD}{CYAN}Skills & Commands{RESET}")
+        print(f"  {GRAY}{'─' * 40}{RESET}")
+        for skill, count in report["skill_usage"].most_common(10):
+            bar_len = min(count, 30)
+            bar = "█" * bar_len
+            print(f"  {skill:25} {count:4}  {CYAN}{bar}{RESET}")
+
     # Most active files
     all_files = Counter()
     all_files.update(report["files_read"])
@@ -480,6 +497,21 @@ def print_summary_table(sessions_reports):
         f"  {'Total':8} {'':12} {format_duration(total_duration):>8} "
         f"{total_cost_color}${total_cost:>6.2f}{RESET}"
     )
+
+    # Aggregate skill usage across all sessions
+    all_skills = Counter()
+    for r in sessions_reports:
+        all_skills.update(r.get("skill_usage", {}))
+    if all_skills:
+        print()
+        print(f"  {BOLD}{CYAN}Skills & Commands (across sessions){RESET}")
+        print(f"  {GRAY}{'─' * 50}{RESET}")
+        for skill, count in all_skills.most_common(10):
+            bar_len = min(count, 30)
+            bar = "█" * bar_len
+            sessions_with = sum(1 for r in sessions_reports if skill in r.get("skill_usage", {}))
+            print(f"  {skill:25} {count:4}  {GRAY}({sessions_with} sessions){RESET}  {CYAN}{bar}{RESET}")
+
     print()
 
 

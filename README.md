@@ -139,7 +139,7 @@ Real-time status bar for Claude Code with context sparkline, session cost, cache
 
 ### [claude-code-session-stats](./claude-code-session-stats/)
 
-Post-session analytics — cost breakdown, token usage sparkline, tool usage chart, most active files, and compaction timeline.
+Post-session analytics — cost breakdown, token usage sparkline, tool and skill usage charts, most active files, and compaction timeline.
 
 ```bash
 python3 session-stats.py              # latest session

@@ -17,3 +17,6 @@ venv/
 # Claude Code
 .claude/settings.local.json
 *-export.md
+
+# Playwright MCP
+.playwright-mcp/

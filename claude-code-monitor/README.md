@@ -79,7 +79,7 @@ Press any key after viewing a report to return to the live dashboard.
 - **Token breakdown bar** — visual bar showing input/cache/output proportions with percentages
 - **Current vs Session** — split activity view: current turn (this question/answer) and full session totals
 - **Mini event log** — last 8 timestamped events: tool calls, errors, compactions
-- **Full log viewer** — `l` opens scrollable log with `f` to filter (all/errors/bash/edits/search/agents/compactions) and `a` for live auto-scroll
+- **Full log viewer** — `l` opens scrollable log with `f` to filter (all/errors/bash/edits/search/agents/skills/compactions) and `a` for live auto-scroll
 - **Green pulse** — separator flashes bright green when new data arrives
 - **Compaction alert** — `⚡ JUST COMPACTED` highlight after compaction events
 - **Cost burn rate** — `$/min` alongside per-turn average cost
@@ -94,6 +94,7 @@ Press any key after viewing a report to return to the live dashboard.
 - **Per-turn token sparkline** — shows output tokens per turn (scaled to peak), recent turns at full resolution, compaction markers (`↓`)
 - **Compaction prediction** — estimated turns until next auto-compaction
 - **Agent tracking** — logs agent/subagent spawns and completions in the event log; CURRENT section shows active/total agents per turn
+- **Skill tracking** — logs skill and slash command invocations in the event log; CURRENT section shows active skill while running
 
 ## Settings
 
