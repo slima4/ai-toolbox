@@ -22,7 +22,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Full context window size (200k for Claude models)
 CONTEXT_LIMIT = 200_000
@@ -50,6 +50,7 @@ CYAN = "\033[96m"
 MAGENTA = "\033[95m"
 WHITE = "\033[97m"
 GRAY = "\033[90m"
+DIM = "\033[2m"
 
 # Widget system — left-side 3-row animation area
 # Select via custom.widget in claudeui.json, or STATUSLINE_WIDGET env var (default: matrix)
@@ -391,7 +392,7 @@ def format_duration(start_timestamp):
     try:
         start_str = start_timestamp.replace("Z", "+00:00")
         start = datetime.fromisoformat(start_str)
-        now = datetime.now(start.tzinfo)
+        now = datetime.now(timezone.utc)
         delta = now - start
         total_minutes = int(delta.total_seconds() / 60)
         if total_minutes < 60:

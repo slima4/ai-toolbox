@@ -85,9 +85,13 @@ def get_setting(*keys, default=None):
 # ── Pricing and limits ──────────────────────────────────────────────
 
 MODEL_PRICING = {
+    # Claude 4.6 / 4.5
     "claude-opus-4-6": {"input": 15.0, "cache_read": 1.5, "output": 75.0},
     "claude-sonnet-4-6": {"input": 3.0, "cache_read": 0.30, "output": 15.0},
     "claude-haiku-4-5": {"input": 0.80, "cache_read": 0.08, "output": 4.0},
+    # Claude 3.5
+    "claude-sonnet-3-5": {"input": 3.0, "cache_read": 0.30, "output": 15.0},
+    "claude-haiku-3-5": {"input": 0.80, "cache_read": 0.08, "output": 4.0},
 }
 CONTEXT_LIMIT = 200_000
 _original_termios = None
@@ -519,6 +523,17 @@ def build_sparkline(values, width=50):
     """
     if not values:
         return ""
+    # Keep only the last 3 compaction markers; replace older ones with 0
+    none_indices = [i for i, v in enumerate(values) if v is None]
+    keep_set = set(none_indices[-3:])
+    cleaned = []
+    for i, v in enumerate(values):
+        if v is None and i not in keep_set:
+            cleaned.append(0)
+        else:
+            cleaned.append(v)
+    values = cleaned
+
     # Display mode: "tail" (last N turns) or "merge" (downsample all)
     mode = get_setting("sparkline", "mode", default="tail")
     if mode == "merge":

@@ -302,7 +302,7 @@ def format_duration(minutes):
         return f"{minutes}m"
     hours = minutes // 60
     mins = minutes % 60
-    return f"{hours}h {mins}m"
+    return f"{hours}h {mins:02d}m"
 
 
 def format_tokens(n):
