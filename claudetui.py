@@ -120,7 +120,7 @@ def main():
         if not os.path.exists(target_path):
             print(f"claudetui: hook script not found at {target_path}", file=sys.stderr)
             sys.exit(1)
-        os.execvp("python3", ["python3", target_path] + args[1:])
+        os.execvp(sys.executable, [sys.executable, target_path] + args[1:])
 
     if cmd not in SUBCOMMANDS:
         print(f"claudetui: unknown command '{cmd}'\n", file=sys.stderr)
@@ -139,7 +139,7 @@ def main():
         os.environ["INSTALL_DIR"] = SCRIPT_DIR
         os.execvp("bash", ["bash", target_path] + args)
     else:
-        os.execvp("python3", ["python3", target_path] + args)
+        os.execvp(sys.executable, [sys.executable, target_path] + args)
 
 
 if __name__ == "__main__":
