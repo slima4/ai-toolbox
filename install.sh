@@ -300,11 +300,13 @@ for cfg in hook_configs:
 
 settings["hooks"] = hooks
 
-# Write settings
+# Write settings (atomic: write to tmp, then rename)
 Path(settings_file).parent.mkdir(parents=True, exist_ok=True)
-with open(settings_file, "w") as f:
+tmp = settings_file + ".tmp"
+with open(tmp, "w") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
+os.replace(tmp, settings_file)
 PYEOF
 
 # ── Install CLI commands ─────────────────────────────────────────────

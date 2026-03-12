@@ -103,9 +103,11 @@ elif "hooks" in settings:
 
 print(f"  \033[92m✓\033[0m Cleaned hooks config")
 
-with open(settings_file, "w") as f:
+tmp = settings_file + ".tmp"
+with open(tmp, "w") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
+os.replace(tmp, settings_file)
 PYEOF
 fi
 

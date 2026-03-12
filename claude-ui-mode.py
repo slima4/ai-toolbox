@@ -99,9 +99,11 @@ def load_settings():
 
 
 def save_settings(settings):
-    with open(SETTINGS_PATH, "w") as f:
+    tmp = SETTINGS_PATH + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(settings, f, indent=2)
         f.write("\n")
+    os.replace(tmp, SETTINGS_PATH)
 
 
 def show_current():
@@ -203,9 +205,11 @@ def load_config():
 
 def save_config(cfg):
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    with open(CONFIG_PATH, "w") as f:
+    tmp = CONFIG_PATH + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(cfg, f, indent=2)
         f.write("\n")
+    os.replace(tmp, CONFIG_PATH)
 
 
 def get_toggle(custom, comp_id, line):

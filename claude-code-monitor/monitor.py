@@ -947,11 +947,13 @@ def _read_claude_settings():
 
 
 def _write_claude_settings(settings):
-    """Write ~/.claude/settings.json."""
+    """Write ~/.claude/settings.json (atomic)."""
     path = os.path.join(os.path.expanduser("~"), ".claude", "settings.json")
-    with open(path, "w") as f:
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(settings, f, indent=2)
         f.write("\n")
+    os.replace(tmp, path)
 
 
 def show_settings_panel(term_width):
@@ -1133,9 +1135,11 @@ def _save_claudeui_setting(*keys_and_value):
             d[k] = {}
         d = d[k]
     d[keys[-1]] = value
-    with open(path, "w") as f:
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(cfg, f, indent=2)
         f.write("\n")
+    os.replace(tmp, path)
     # Force settings reload
     global _SETTINGS_CACHE, _SETTINGS_MTIME
     _SETTINGS_CACHE = None
