@@ -177,17 +177,21 @@ echo -e "  ${CYAN}1)${RESET} ${BOLD}full${RESET}     3-line statusline with all 
 echo -e "  ${CYAN}2)${RESET} ${BOLD}compact${RESET}  1-line statusline with essentials (model, context, cost)"
 echo -e "  ${CYAN}3)${RESET} ${BOLD}custom${RESET}   Choose which components to show (configure after install)"
 echo ""
-echo -ne "  Choose [${BOLD}1${RESET}/${BOLD}2${RESET}/${BOLD}3${RESET}] (default: 1): "
-read -r mode_choice < /dev/tty || mode_choice=""
-DISPLAY_MODE=""
-case "${mode_choice}" in
-    2|compact) STATUSLINE_MODE="compact"; DISPLAY_MODE="compact" ;;
-    3|custom)  STATUSLINE_MODE="full";    DISPLAY_MODE="custom" ;;
-    *)         STATUSLINE_MODE="full";    DISPLAY_MODE="full" ;;
-esac
+while true; do
+    echo -ne "  Choose [${BOLD}1${RESET}/${BOLD}2${RESET}/${BOLD}3${RESET}] (default: 1): "
+    read -rn1 mode_choice < /dev/tty || mode_choice=""
+    echo ""
+    case "${mode_choice}" in
+        1|"") STATUSLINE_MODE="full";    DISPLAY_MODE="full";    break ;;
+        2)    STATUSLINE_MODE="compact"; DISPLAY_MODE="compact"; break ;;
+        3)    STATUSLINE_MODE="full";    DISPLAY_MODE="custom";  break ;;
+        *)    echo -e "  ${RED}✗${RESET} Please enter 1, 2, or 3" ;;
+    esac
+done
 ok "Statusline mode: $DISPLAY_MODE"
+LAUNCH_CUSTOM=false
 if [ "$DISPLAY_MODE" = "custom" ]; then
-    echo -e "  ${DIM}Run 'claudetui mode custom' after install to configure components.${RESET}"
+    LAUNCH_CUSTOM=true
 fi
 export STATUSLINE_MODE
 
@@ -380,3 +384,10 @@ else
     echo -e "  ${DIM}To uninstall: claudetui uninstall${RESET}"
 fi
 echo ""
+
+# Launch custom configurator if user chose option 3
+if [ "$LAUNCH_CUSTOM" = "true" ]; then
+    echo -e "  ${BOLD}Opening statusline configurator...${RESET}"
+    echo ""
+    python3 "$INSTALL_DIR/claude-ui-mode.py" custom
+fi
