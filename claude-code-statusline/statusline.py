@@ -352,11 +352,12 @@ def parse_transcript(transcript_path):
             # Capture post-compaction baseline from first usage after compact
             if result["context_at_last_compact"] == -1:
                 result["context_at_last_compact"] = ctx_snapshot
-                # Record waste: pre-compact context minus post-compact rebuild
+                # Record waste: headroom (unusable space) + rebuild (re-reading summary)
                 if result["compact_count"] > 0 and result.get("_ctx_before_compact", 0) > 0:
-                    wasted = result["_ctx_before_compact"] - ctx_snapshot
-                    if wasted > 0:
-                        result["tokens_wasted"] += wasted
+                    pre = result["_ctx_before_compact"]
+                    headroom = max(0, CONTEXT_LIMIT - pre)
+                    rebuild = ctx_snapshot  # cost of re-reading compacted summary
+                    result["tokens_wasted"] += headroom + rebuild
 
             # Track per-turn context growth (last snapshot per turn wins)
             turn = result["turn_count"]
@@ -378,7 +379,7 @@ def parse_transcript(transcript_path):
             result["compact_count"] += 1
             result["context_history"].append(None)
             result["_ctx_before_compact"] = result["_pre_compact_ctx"]
-            result["total_context_built"] += result["_pre_compact_ctx"]
+            result["total_context_built"] += CONTEXT_LIMIT  # full window budget per segment
             result["turns_since_compact"] = 0
             result["context_at_last_compact"] = -1  # sentinel: next usage will set baseline
             result["context_per_turn"] = []  # reset per-turn tracking

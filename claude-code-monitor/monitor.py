@@ -8,8 +8,9 @@ Usage:
 
 Hotkeys:
     s  session stats        d  session details
-    l  event log            e  export session
-    o  project sessions     ?  help overlay
+    l  event log            w  efficiency chart
+    e  export session       o  project sessions
+    c  settings             ?  help overlay
     q  quit
 """
 
@@ -426,13 +427,15 @@ def parse_transcript(path):
                 last_context = ctx
                 if context_at_last_compact == -1:
                     context_at_last_compact = ctx
-                    # Compute waste from previous compaction
+                    # Compute waste: headroom (unusable space) + rebuild (re-reading summary)
                     if r["compact_events"]:
-                        pre = r["compact_events"][-1]["context_before"]
+                        evt = r["compact_events"][-1]
+                        evt["context_after"] = ctx
+                        pre = evt["context_before"]
                         if pre > 0:
-                            wasted = pre - ctx
-                            if wasted > 0:
-                                r["tokens_wasted"] += wasted
+                            headroom = max(0, CONTEXT_LIMIT - pre)
+                            rebuild = ctx  # cost of re-reading compacted summary
+                            r["tokens_wasted"] += headroom + rebuild
                 # Track per-turn context (last snapshot per turn wins)
                 r["context_per_turn"][current_turn] = ctx
                 if out_t > 0:
@@ -446,7 +449,7 @@ def parse_transcript(path):
         if (etype == "summary" or
                 (etype == "system" and obj.get("subtype") == "compact_boundary")):
             r["compact_count"] += 1
-            r["total_context_built"] += last_context
+            r["total_context_built"] += CONTEXT_LIMIT  # full window budget per segment
             r["context_history"].append(None)
             r["event_log"].append((ts, f"⚡ compaction #{r['compact_count']}"))
             r["compact_events"].append({
@@ -965,12 +968,13 @@ def render_footer(term_width):
     """Render the sticky footer hotkey bar, adapted to terminal width."""
     sep = f"{DIM}{'─' * term_width}{RESET}"
 
-    if term_width >= 60:
+    if term_width >= 70:
         # Full labels
         keys = (
             f"  {BOLD}{CYAN}s{RESET}{DIM}tats{RESET}  "
             f"{BOLD}{CYAN}d{RESET}{DIM}etails{RESET}  "
             f"{BOLD}{CYAN}l{RESET}{DIM}og{RESET}  "
+            f"{BOLD}{CYAN}w{RESET}{DIM}aste{RESET}  "
             f"{BOLD}{CYAN}e{RESET}{DIM}xport{RESET}  "
             f"{DIM}sessi{RESET}{BOLD}{CYAN}o{RESET}{DIM}ns{RESET}  "
             f"{BOLD}{CYAN}c{RESET}{DIM}onfig{RESET}  "
@@ -983,6 +987,7 @@ def render_footer(term_width):
             f" {BOLD}{CYAN}s{RESET}{DIM}tat{RESET} "
             f"{BOLD}{CYAN}d{RESET}{DIM}tl{RESET} "
             f"{BOLD}{CYAN}l{RESET}{DIM}og{RESET} "
+            f"{BOLD}{CYAN}w{RESET}{DIM}st{RESET} "
             f"{BOLD}{CYAN}e{RESET}{DIM}xp{RESET} "
             f"{BOLD}{CYAN}o{RESET}{DIM}ss{RESET} "
             f"{BOLD}{CYAN}c{RESET}{DIM}fg{RESET} "
@@ -995,6 +1000,7 @@ def render_footer(term_width):
             f" {BOLD}{CYAN}s{RESET} "
             f"{BOLD}{CYAN}d{RESET} "
             f"{BOLD}{CYAN}l{RESET} "
+            f"{BOLD}{CYAN}w{RESET} "
             f"{BOLD}{CYAN}e{RESET} "
             f"{BOLD}{CYAN}o{RESET} "
             f"{BOLD}{CYAN}c{RESET} "
@@ -1248,6 +1254,7 @@ def render_help_overlay(term_width):
         ("s", "Session stats — full cost breakdown, token sparkline, tool usage"),
         ("d", "Session details — detailed session view from session-manager"),
         ("l", "Event log — scrollable, f to filter, a for live auto-scroll"),
+        ("w", "Efficiency chart — token waste per segment, v to toggle view"),
         ("e", "Export session — save session as markdown"),
         ("o", "List sessions — browse sessions for this project"),
         ("c", "Settings — compaction, sparkline, display config"),
@@ -1534,7 +1541,7 @@ def find_session_by_id(session_id):
 
 # ── Input handling ──────────────────────────────────────────────────
 
-VALID_KEYS = frozenset("qQsSdDlLeEoOcC?")
+VALID_KEYS = frozenset("qQsSdDlLwWeEoOcC?")
 
 
 def get_key():
@@ -1606,6 +1613,273 @@ def export_session(path, session_id):
     sys.stdout.flush()
 
 
+# ── Efficiency chart screen ──────────────────────────────────────────
+
+
+EFFICIENCY_LEGEND = f"    {GREEN}██{RESET} useful   {YELLOW}▓▓{RESET} rebuild   {GRAY}░░{RESET} headroom"
+
+
+def _build_segments(r):
+    """Build per-segment data from compact_events and current context.
+
+    Each segment shows:
+      - rebuild: tokens inherited from previous compaction summary
+      - useful: new tokens added during this segment
+      - headroom: reserved space for compaction (CONTEXT_LIMIT - peak)
+      - peak: total context at end of segment
+    Compaction waste is stored separately per event, shown between segments.
+    """
+    segments = []
+    compactions = []
+    prev_rebuild = 0
+    for evt in r["compact_events"]:
+        peak = evt["context_before"]
+        survived = evt.get("context_after", 0)
+        lost = peak - survived if survived > 0 else 0
+        useful = peak - prev_rebuild  # new work added in this segment
+        headroom = max(0, CONTEXT_LIMIT - peak)
+        segments.append({
+            "peak": peak,
+            "useful": max(useful, 0),
+            "rebuild": prev_rebuild,
+            "headroom": headroom,
+        })
+        compactions.append({
+            "lost": max(lost, 0),
+            "survived": survived,
+        })
+        prev_rebuild = survived
+    # Current (active) segment
+    current = r["last_context"]
+    if current > 0:
+        useful = current - prev_rebuild
+        segments.append({
+            "peak": current,
+            "useful": max(useful, 0),
+            "rebuild": prev_rebuild,
+            "headroom": 0,  # active segment — still growing
+            "active": True,
+        })
+    return segments, compactions
+
+
+def _render_horizontal_chart(segments, compactions, w):
+    """Render horizontal bar chart of segments."""
+    lines = []
+    # Scale all bars to CONTEXT_LIMIT so completed segments show full width
+    scale_ref = CONTEXT_LIMIT
+    bar_width = max(20, w - 24)
+
+    lines.append(f"  {BOLD}CONTEXT EFFICIENCY — HORIZONTAL{RESET}")
+    lines.append("")
+    lines.append(EFFICIENCY_LEGEND)
+    lines.append("")
+
+    for i, seg in enumerate(segments):
+        is_active = seg.get("active", False)
+        label = f"{'→ ' if is_active else '  '}Seg {i + 1}"
+        has_compaction = i < len(compactions)
+
+        rebuild_t = seg["rebuild"]
+        useful_t = seg["useful"]
+        headroom_t = seg["headroom"]
+        total_t = rebuild_t + useful_t + headroom_t  # = CONTEXT_LIMIT for completed
+
+        scale = bar_width / scale_ref if scale_ref > 0 else 1
+        total_bar = min(int(total_t * scale), bar_width)
+        if total_bar == 0 and total_t > 0:
+            total_bar = 1
+
+        # Distribute bar proportionally
+        if total_t > 0:
+            rebuild_w = int(total_bar * rebuild_t / total_t)
+            headroom_w = int(total_bar * headroom_t / total_t)
+            useful_w = total_bar - rebuild_w - headroom_w
+        else:
+            rebuild_w = useful_w = headroom_w = 0
+        # Ensure minimum 1 char for non-zero components
+        if rebuild_t > 0 and rebuild_w == 0:
+            rebuild_w = 1
+            useful_w = max(0, useful_w - 1)
+        if headroom_t > 0 and headroom_w == 0:
+            headroom_w = 1
+            useful_w = max(0, useful_w - 1)
+
+        bar = ""
+        if rebuild_w > 0:
+            bar += f"{YELLOW}{'▓' * rebuild_w}{RESET}"
+        if useful_w > 0:
+            bar += f"{GREEN}{'█' * useful_w}{RESET}"
+        if headroom_w > 0:
+            bar += f"{GRAY}{'░' * headroom_w}{RESET}"
+
+        peak_str = format_tokens(int(seg["peak"]))
+        if not is_active:
+            lines.append(f"  {BOLD}{label}{RESET}  {bar}  {GRAY}{format_tokens(CONTEXT_LIMIT)}{RESET}")
+        else:
+            lines.append(f"  {BOLD}{label}{RESET}  {bar}  {GRAY}{peak_str}{RESET}")
+
+        # Detail line
+        parts = []
+        if rebuild_t > 0:
+            parts.append(f"{YELLOW}{format_tokens(int(rebuild_t))}{RESET} rebuild")
+        parts.append(f"{GREEN}{format_tokens(int(useful_t))}{RESET} useful")
+        if headroom_t > 0:
+            parts.append(f"{GRAY}{format_tokens(int(headroom_t))}{RESET} headroom")
+        if has_compaction:
+            cl = compactions[i]["lost"]
+            cs = compactions[i]["survived"]
+            parts.append(f"{DIM}→ compacted: {format_tokens(int(cs))} survived, -{format_tokens(int(cl))} lost{RESET}")
+        detail = f"{DIM} │ {RESET}".join(parts)
+        lines.append(f"          {detail}")
+
+        # Compaction marker between segments
+        if has_compaction:
+            lines.append(f"          {DIM}──── compact #{i + 1} ────{RESET}")
+
+    return lines
+
+
+def _render_vertical_chart(segments, compactions, w, h):
+    """Render vertical stacked bar chart of segments."""
+    lines = []
+    scale_ref = CONTEXT_LIMIT
+    chart_height = max(8, min(h - 12, 20))
+    col_width = max(6, min(12, (w - 10) // max(len(segments), 1)))
+    num_cols = min(len(segments), (w - 10) // col_width)
+
+    lines.append(f"  {BOLD}CONTEXT EFFICIENCY — VERTICAL{RESET}")
+    lines.append("")
+    lines.append(EFFICIENCY_LEGEND)
+    lines.append("")
+
+    # Build columns: rebuild (bottom) + useful (middle) + headroom (top)
+    cols = []
+    display_segs = segments[-num_cols:]
+    for seg in display_segs:
+        total_t = seg["rebuild"] + seg["useful"] + seg["headroom"]
+        total_rows = int(total_t / scale_ref * chart_height) if scale_ref > 0 else 0
+        rebuild_rows = int(seg["rebuild"] / scale_ref * chart_height) if scale_ref > 0 else 0
+        headroom_rows = int(seg["headroom"] / scale_ref * chart_height) if scale_ref > 0 else 0
+        useful_rows = total_rows - rebuild_rows - headroom_rows
+        if useful_rows < 0:
+            useful_rows = 0
+        cols.append((rebuild_rows, useful_rows, headroom_rows, total_rows))
+
+    # Y-axis labels
+    for row in range(chart_height, 0, -1):
+        if row == chart_height:
+            y_label = format_tokens(CONTEXT_LIMIT)
+        elif row == chart_height // 2:
+            y_label = format_tokens(CONTEXT_LIMIT // 2)
+        elif row == 1:
+            y_label = "0"
+        else:
+            y_label = ""
+        line = f"  {GRAY}{y_label:>6s}{RESET} │"
+
+        for ci, (rb, us, hr, _) in enumerate(cols):
+            # From bottom: rebuild (yellow), useful (green), headroom (gray)
+            bar_char = "    "
+            if row <= rb:
+                bar_char = f"{YELLOW}▓▓▓▓{RESET}"
+            elif row <= rb + us:
+                bar_char = f"{GREEN}████{RESET}"
+            elif row <= rb + us + hr:
+                bar_char = f"{GRAY}░░░░{RESET}"
+            padding = " " * max(0, col_width - 4)
+            line += bar_char + padding
+        lines.append(line)
+
+    # X-axis
+    x_axis = f"  {'':>6s} └"
+    for i in range(len(cols)):
+        x_axis += f"{'─' * col_width}"
+    lines.append(x_axis)
+
+    # Labels
+    label_line = f"  {'':>6s}  "
+    for i in range(len(cols)):
+        seg_idx = len(segments) - num_cols + i
+        is_active = segments[seg_idx].get("active", False)
+        label = f"{'→' if is_active else 'S'}{seg_idx + 1}"
+        label_line += f"{BOLD}{label}{RESET}" + " " * max(0, col_width - len(label))
+    lines.append(label_line)
+
+    # Peak values
+    peak_line = f"  {'':>6s}  "
+    for i in range(len(cols)):
+        seg_idx = len(segments) - num_cols + i
+        pk = format_tokens(int(segments[seg_idx]["peak"]))
+        peak_line += f"{GRAY}{pk}{RESET}" + " " * max(0, col_width - len(pk))
+    lines.append(peak_line)
+
+    return lines
+
+
+def show_efficiency_chart(r, term_width):
+    """Interactive efficiency chart with horizontal/vertical toggle."""
+    out = sys.stdout
+    segments, compactions = _build_segments(r)
+    if not segments:
+        return
+
+    # Calculate totals
+    total_wasted = r["tokens_wasted"]
+    total_built = r["total_context_built"] + r["last_context"]
+    eff = max(0, 1 - total_wasted / total_built) if total_built > 0 else 1.0
+    eff_pct = int(eff * 100)
+
+    mode = "horizontal"  # start with horizontal
+    term_height = shutil.get_terminal_size().lines
+
+    while True:
+        lines = []
+        lines.append("")
+        w = term_width - 2
+
+        if mode == "horizontal":
+            lines.extend(_render_horizontal_chart(segments, compactions, w))
+        else:
+            lines.extend(_render_vertical_chart(segments, compactions, w, term_height))
+
+        # Summary
+        lines.append("")
+        if eff_pct >= 90:
+            eff_color = GREEN
+        elif eff_pct >= 70:
+            eff_color = YELLOW
+        elif eff_pct >= 50:
+            eff_color = ORANGE
+        else:
+            eff_color = RED
+        wasted_str = format_tokens(int(total_wasted)) if total_wasted > 0 else "0"
+        total_str = format_tokens(int(total_built))
+        lines.append(f"  {BOLD}Efficiency:{RESET} {eff_color}{eff_pct}%{RESET}  {DIM}│{RESET}  {DIM}Wasted:{RESET} {RED}{wasted_str}{RESET}{DIM}/{RESET}{GRAY}{total_str}{RESET}  {DIM}│{RESET}  {DIM}Segments:{RESET} {CYAN}{len(segments)}{RESET}  {DIM}│{RESET}  {DIM}Compactions:{RESET} {CYAN}{r['compact_count']}{RESET}")
+        lines.append("")
+        lines.append(f"  {DIM}v{RESET} toggle view  {DIM}q{RESET} close")
+        lines.append("")
+
+        out.write(CLEAR + "\n".join(lines))
+        out.flush()
+
+        # Wait for keypress
+        while True:
+            if select.select([sys.stdin], [], [], 0.1)[0]:
+                byte = os.read(sys.stdin.fileno(), 1)
+                # Drain escape sequence
+                while select.select([sys.stdin], [], [], 0.01)[0]:
+                    os.read(sys.stdin.fileno(), 1)
+                key = byte.decode("utf-8", errors="ignore")
+                if key in ("v", "V"):
+                    mode = "vertical" if mode == "horizontal" else "horizontal"
+                    term_width = get_terminal_width()
+                    term_height = shutil.get_terminal_size().lines
+                    break
+                elif key in ("q", "Q", "\x1b"):
+                    return
+
+
 # ── Splash screen ────────────────────────────────────────────────────
 
 LOGO_LINES = [
@@ -1659,11 +1933,56 @@ def update_splash_status(out, status_text):
     out.flush()
 
 
+# ── Standalone chart entry point ─────────────────────────────────────
+
+
+def _run_chart_standalone(session_id=None):
+    """Run efficiency chart as a standalone screen — no monitor chrome."""
+    # Find transcript
+    if session_id:
+        path = find_session_by_id(session_id)
+        if not path:
+            print(f"Session '{session_id}' not found. Use --list to see sessions.")
+            sys.exit(1)
+    else:
+        path = find_transcript()
+        if not path:
+            print("No active session found. Use --list or pass a session ID.")
+            sys.exit(1)
+
+    # Parse
+    r = parse_transcript(path)
+    if not r:
+        print("Failed to parse transcript.")
+        sys.exit(1)
+
+    if not r["compact_events"]:
+        print("No compactions yet — efficiency is 100%.")
+        return
+
+    # Enter raw mode and alt screen
+    old_settings = termios.tcgetattr(sys.stdin)
+    try:
+        tty.setcbreak(sys.stdin.fileno())
+        sys.stdout.write(ALT_SCREEN_ON + HIDE_CURSOR)
+        sys.stdout.flush()
+        term_width = get_terminal_width()
+        show_efficiency_chart(r, term_width)
+    finally:
+        sys.stdout.write(SHOW_CURSOR + ALT_SCREEN_OFF)
+        sys.stdout.flush()
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+
+
 # ── Main loop ───────────────────────────────────────────────────────
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--list":
         list_sessions()
+        return
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--chart":
+        _run_chart_standalone(sys.argv[2] if len(sys.argv) > 2 else None)
         return
 
     global _original_termios
@@ -1814,6 +2133,11 @@ def main():
                         if os.path.exists(script):
                             project_name = Path(path).parent.name
                             run_tool(script, ["list", f"--project={project_name}"])
+                            needs_full_redraw = True
+                            cached_header = cached_log = None
+                    elif key in ("w", "W"):
+                        if r is not None:
+                            show_efficiency_chart(r, term_width)
                             needs_full_redraw = True
                             cached_header = cached_log = None
                     elif key in ("c", "C"):

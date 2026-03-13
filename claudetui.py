@@ -50,6 +50,7 @@ SCRIPT_DIR = _stable_dir(_RAW_DIR)
 
 SUBCOMMANDS = {
     "monitor":    ("python", "claude-code-monitor/monitor.py",                  "Live session dashboard"),
+    "chart":      ("python", "claude-code-monitor/monitor.py",                  "Context efficiency chart", ["--chart"]),
     "stats":      ("python", "claude-code-session-stats/session-stats.py",       "Post-session analytics"),
     "sessions":   ("python", "claude-code-session-manager/session-manager.py",   "Browse, compare, export sessions"),
     "mode":       ("python", "claude-ui-mode.py",                                "Switch statusline mode (full/compact/custom)"),
@@ -72,6 +73,7 @@ Usage:
 
 Commands:
   monitor     Live session dashboard (separate terminal)
+  chart       Context efficiency chart (token waste per segment)
   stats       Post-session analytics
   sessions    Browse, compare, resume, export sessions
   mode        Switch statusline mode (full/compact/custom)
@@ -84,6 +86,7 @@ Options:
 
 Examples:
   claudetui monitor              # live dashboard
+  claudetui chart                # efficiency chart for current session
   claudetui stats --days 7 -s    # weekly summary
   claudetui sessions list        # browse sessions
   claudetui mode compact         # switch to 1-line statusline
@@ -127,7 +130,9 @@ def main():
         print(HELP, file=sys.stderr)
         sys.exit(2)
 
-    kind, target, _ = SUBCOMMANDS[cmd]
+    entry = SUBCOMMANDS[cmd]
+    kind, target = entry[0], entry[1]
+    prefix_args = entry[3] if len(entry) > 3 else []
     target_path = os.path.join(SCRIPT_DIR, target)
 
     if not os.path.exists(target_path):
@@ -137,9 +142,9 @@ def main():
 
     if kind == "bash":
         os.environ["INSTALL_DIR"] = SCRIPT_DIR
-        os.execvp("bash", ["bash", target_path] + args)
+        os.execvp("bash", ["bash", target_path] + prefix_args + args)
     else:
-        os.execvp(sys.executable, [sys.executable, target_path] + args)
+        os.execvp(sys.executable, [sys.executable, target_path] + prefix_args + args)
 
 
 if __name__ == "__main__":
