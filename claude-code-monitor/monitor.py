@@ -1814,17 +1814,30 @@ def main():
                         cached_header, cached_log = render_dashboard(r, idle_secs, just_updated, term_width)
                         needs_full_redraw = True
 
-                # Auto-follow: if idle for >5 min, check for newer sessions
-                if elapsed > 300 and current_sec % 10 == 0:
-                    new_path = find_latest_transcript()
-                    if new_path and new_path != path:
-                        new_mtime = os.stat(new_path).st_mtime
-                        if new_mtime > last_mtime:
-                            path = new_path
-                            session_id = Path(path).stem[:8]
-                            last_mtime = 0
-                            cached_header = cached_log = None
-                            needs_full_redraw = True
+                # Auto-follow: check for newer session in same project
+                # directory after 10s idle, or any project after 5 min
+                if elapsed > 10 and current_sec % 5 == 0:
+                    project_dir = Path(path).parent
+                    siblings = sorted(
+                        project_dir.glob("*.jsonl"),
+                        key=lambda f: f.stat().st_mtime, reverse=True)
+                    newest = str(siblings[0]) if siblings else None
+                    if newest and newest != path:
+                        path = newest
+                        session_id = Path(path).stem[:8]
+                        last_mtime = 0
+                        cached_header = cached_log = None
+                        needs_full_redraw = True
+                    elif elapsed > 300 and current_sec % 10 == 0:
+                        new_path = find_latest_transcript()
+                        if new_path and new_path != path:
+                            new_mtime = os.stat(new_path).st_mtime
+                            if new_mtime > last_mtime:
+                                path = new_path
+                                session_id = Path(path).stem[:8]
+                                last_mtime = 0
+                                cached_header = cached_log = None
+                                needs_full_redraw = True
 
                 # Matrix animates when Claude is working or transcript just changed
                 idle = now - last_data_time
